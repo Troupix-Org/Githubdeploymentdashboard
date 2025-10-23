@@ -50,7 +50,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
 interface DeploymentDashboardProps {
   project: Project;
@@ -93,12 +92,11 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
   // Workflow inputs states
   const [workflowInputs, setWorkflowInputs] = useState<{ [pipelineId: string]: WorkflowInput[] }>({});
   const [inputValues, setInputValues] = useState<{ [pipelineId: string]: Record<string, any> }>({});
-  const [expandedInputs, setExpandedInputs] = useState<{ [pipelineId: string]: boolean }>({});
 
   // Collapsible sections states
-  const [repositoriesOpen, setRepositoriesOpen] = useState(true);
-  const [deployOpen, setDeployOpen] = useState(true);
-  const [historyOpen, setHistoryOpen] = useState(true);
+  const [repositoriesOpen, setRepositoriesOpen] = useState(false);
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const loadDeployments = () => {
     const data = getDeploymentsByProject(project.id);
@@ -210,10 +208,6 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
         // Initialize input values with defaults
         const defaultValues: Record<string, any> = {};
         inputs.forEach(input => {
-          if (input.name === 'build_number') {
-            // Skip build_number as it's handled separately
-            return;
-          }
           if (input.default !== undefined) {
             defaultValues[input.name] = input.default;
           } else if (input.type === 'boolean') {
@@ -247,12 +241,6 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
   }, [project.id, selectedPipeline]);
 
   const handleDeploy = async (pipelineId: string) => {
-    const buildNumber = buildNumbers[pipelineId];
-    if (!buildNumber) {
-      setError(`Please enter a build number for ${project.pipelines.find(p => p.id === pipelineId)?.name}`);
-      return;
-    }
-
     const pipeline = project.pipelines.find(p => p.id === pipelineId);
     if (!pipeline) {
       setError('Pipeline not found');
@@ -265,22 +253,31 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
       return;
     }
 
+    // Get build_number from inputValues or buildNumbers (for backward compatibility)
+    const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
+    if (!buildNumber) {
+      setError(`Please enter a build number for ${pipeline.name}`);
+      return;
+    }
+
     setLoadingPipelines(prev => ({ ...prev, [pipelineId]: true }));
     setError('');
     setSuccess('');
 
     try {
-      // Prepare workflow inputs
-      const workflowParams: Record<string, string> = {
-        build_number: buildNumber,
-      };
-
-      // Add additional inputs if they exist
-      const additionalInputs = inputValues[pipeline.id] || {};
-      for (const [key, value] of Object.entries(additionalInputs)) {
+      // Prepare workflow inputs from inputValues
+      const workflowParams: Record<string, string> = {};
+      
+      const allInputs = inputValues[pipeline.id] || {};
+      for (const [key, value] of Object.entries(allInputs)) {
         if (value !== undefined && value !== null && value !== '') {
           workflowParams[key] = String(value);
         }
+      }
+      
+      // Ensure build_number is included
+      if (!workflowParams.build_number) {
+        workflowParams.build_number = buildNumber;
       }
 
       // Trigger the workflow
@@ -348,7 +345,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
       const pipeline = pipelinesToDeploy[i];
       setDeployProgress({ current: i + 1, total: pipelinesToDeploy.length });
 
-      const buildNumber = buildNumbers[pipeline.id];
+      const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
       if (!buildNumber) {
         results.failed++;
         results.errors.push(`${pipeline.name}: No build number specified`);
@@ -363,17 +360,19 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
       }
 
       try {
-        // Prepare workflow inputs
-        const workflowParams: Record<string, string> = {
-          build_number: buildNumber,
-        };
-
-        // Add additional inputs if they exist
-        const additionalInputs = inputValues[pipeline.id] || {};
-        for (const [key, value] of Object.entries(additionalInputs)) {
+        // Prepare workflow inputs from inputValues
+        const workflowParams: Record<string, string> = {};
+        
+        const allInputs = inputValues[pipeline.id] || {};
+        for (const [key, value] of Object.entries(allInputs)) {
           if (value !== undefined && value !== null && value !== '') {
             workflowParams[key] = String(value);
           }
+        }
+        
+        // Ensure build_number is included
+        if (!workflowParams.build_number) {
+          workflowParams.build_number = buildNumber;
         }
 
         // Trigger the workflow
@@ -722,13 +721,13 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           {/* Pipeline Rows */}
           {project.pipelines.map(pipeline => {
             const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
-            const pipelineInputs = workflowInputs[pipeline.id]?.filter(input => input.name !== 'build_number') || [];
-            const hasAdditionalInputs = pipelineInputs.length > 0;
+            const allInputs = workflowInputs[pipeline.id] || [];
+            const buildNumberInput = allInputs.find(input => input.name === 'build_number');
             
             return (
               <div 
                 key={pipeline.id} 
-                className="p-3 rounded-lg border border-[#e5e7eb] space-y-2"
+                className="p-2.5 rounded-lg border border-[#e5e7eb] space-y-2"
                 style={{ background: '#f9fafb' }}
               >
                 {/* Pipeline Header */}
@@ -750,11 +749,17 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       </div>
                     )}
                   </div>
-                  {qaReleaseBuilds[pipeline.id]?.buildNumber && (
+                  {qaReleaseBuilds[pipeline.id]?.buildNumber && buildNumberInput && (
                     <div 
                       className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80" 
                       style={{ color: '#6b7280' }}
-                      onClick={() => setBuildNumbers(prev => ({ ...prev, [pipeline.id]: qaReleaseBuilds[pipeline.id]?.buildNumber || '' }))}
+                      onClick={() => setInputValues(prev => ({
+                        ...prev,
+                        [pipeline.id]: {
+                          ...prev[pipeline.id],
+                          build_number: qaReleaseBuilds[pipeline.id]?.buildNumber || '',
+                        },
+                      }))}
                       title="Click to use QA build number"
                     >
                       <GitBranch className="w-3 h-3" />
@@ -769,65 +774,26 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                   )}
                 </div>
 
-                {/* Build Number and Deploy Button */}
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                  <Input
-                    placeholder="Build number (e.g. 1.0.0)"
-                    value={buildNumbers[pipeline.id] || ''}
-                    onChange={(e) => setBuildNumbers(prev => ({ ...prev, [pipeline.id]: e.target.value }))}
-                    onKeyDown={(e) => e.key === 'Enter' && handleDeploy(pipeline.id)}
-                    className="border-[#d1d5db] h-9 text-sm"
-                    style={{ background: '#ffffff', color: '#1f2937' }}
-                  />
-                  <Button
-                    onClick={() => handleDeploy(pipeline.id)}
-                    disabled={loadingPipelines[pipeline.id]}
-                    className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white min-w-[120px] h-9 text-sm"
-                  >
-                    {loadingPipelines[pipeline.id] ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                        Deploying...
-                      </>
-                    ) : (
-                      <>
-                        <Rocket className="w-4 h-4 mr-2" />
-                        Deploy
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {/* Additional Workflow Inputs */}
-                {hasAdditionalInputs && (
-                  <Collapsible
-                    open={expandedInputs[pipeline.id]}
-                    onOpenChange={(open) => setExpandedInputs(prev => ({ ...prev, [pipeline.id]: open }))}
-                    className="pt-2 border-t border-[#e5e7eb]"
-                  >
-                    <CollapsibleTrigger className="flex items-center justify-between w-full py-1 hover:opacity-70 transition-opacity">
-                      <span className="text-xs" style={{ color: '#6b7280' }}>
-                        Additional Parameters ({pipelineInputs.length})
-                      </span>
-                      {expandedInputs[pipeline.id] ? (
-                        <ChevronUp className="w-3 h-3" style={{ color: '#6b7280' }} />
-                      ) : (
-                        <ChevronDown className="w-3 h-3" style={{ color: '#6b7280' }} />
-                      )}
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="pt-2">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {pipelineInputs.map(input => (
-                          <div key={input.name} className="space-y-1">
+                {/* All Workflow Inputs in Compact Grid */}
+                {allInputs.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                      {allInputs.map(input => {
+                        const value = input.name === 'build_number' 
+                          ? (inputValues[pipeline.id]?.[input.name] || buildNumbers[pipeline.id] || '')
+                          : (inputValues[pipeline.id]?.[input.name] || '');
+                        
+                        return (
+                          <div key={input.name} className="space-y-0.5">
                             <Label htmlFor={`input-${pipeline.id}-${input.name}`} className="text-xs" style={{ color: '#374151' }}>
                               {input.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                               {input.required && <span style={{ color: '#ef4444' }}> *</span>}
                             </Label>
                             {input.type === 'boolean' ? (
-                              <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-2 h-7">
                                 <Checkbox
                                   id={`input-${pipeline.id}-${input.name}`}
-                                  checked={inputValues[pipeline.id]?.[input.name] === true}
+                                  checked={value === true}
                                   onCheckedChange={(checked) => {
                                     setInputValues(prev => ({
                                       ...prev,
@@ -844,20 +810,20 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                               </div>
                             ) : input.type === 'choice' && input.options ? (
                               <Select
-                                value={inputValues[pipeline.id]?.[input.name] || ''}
-                                onValueChange={(value) => {
+                                value={value || ''}
+                                onValueChange={(val) => {
                                   setInputValues(prev => ({
                                     ...prev,
                                     [pipeline.id]: {
                                       ...prev[pipeline.id],
-                                      [input.name]: value,
+                                      [input.name]: val,
                                     },
                                   }));
                                 }}
                               >
                                 <SelectTrigger
                                   id={`input-${pipeline.id}-${input.name}`}
-                                  className="border-[#d1d5db] h-8 text-xs"
+                                  className="border-[#d1d5db] h-7 text-xs"
                                   style={{ background: '#ffffff', color: '#1f2937' }}
                                 >
                                   <SelectValue placeholder={input.description || `Select ${input.name}`} />
@@ -874,29 +840,55 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                 </SelectContent>
                               </Select>
                             ) : (
-                            <Input
-                              id={`input-${pipeline.id}-${input.name}`}
-                              type={input.type === 'number' ? 'number' : 'text'}
-                              placeholder={input.default ? String(input.default) : ''}
-                              value={inputValues[pipeline.id]?.[input.name] || ''}
-                              onChange={(e) => {
-                                setInputValues(prev => ({
-                                  ...prev,
-                                  [pipeline.id]: {
-                                    ...prev[pipeline.id],
-                                    [input.name]: input.type === 'number' ? parseFloat(e.target.value) : e.target.value,
-                                  },
-                                }));
-                              }}
-                              className="border-[#d1d5db] h-8 text-xs"
-                              style={{ background: '#ffffff', color: '#1f2937' }}
-                            />
-                          )}
-                        </div>
-                      ))}
+                              <Input
+                                id={`input-${pipeline.id}-${input.name}`}
+                                type={input.type === 'number' ? 'number' : 'text'}
+                                placeholder={input.default ? String(input.default) : ''}
+                                value={value || ''}
+                                onChange={(e) => {
+                                  const val = input.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                                  setInputValues(prev => ({
+                                    ...prev,
+                                    [pipeline.id]: {
+                                      ...prev[pipeline.id],
+                                      [input.name]: val,
+                                    },
+                                  }));
+                                  if (input.name === 'build_number') {
+                                    setBuildNumbers(prev => ({ ...prev, [pipeline.id]: e.target.value }));
+                                  }
+                                }}
+                                onKeyDown={(e) => e.key === 'Enter' && handleDeploy(pipeline.id)}
+                                className="border-[#d1d5db] h-7 text-xs"
+                                style={{ background: '#ffffff', color: '#1f2937' }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    </CollapsibleContent>
-                  </Collapsible>
+                    
+                    {/* Deploy Button */}
+                    <div className="flex justify-end pt-1">
+                      <Button
+                        onClick={() => handleDeploy(pipeline.id)}
+                        disabled={loadingPipelines[pipeline.id]}
+                        className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white h-7 text-xs px-3"
+                      >
+                        {loadingPipelines[pipeline.id] ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 mr-1.5 animate-spin" />
+                            Deploying...
+                          </>
+                        ) : (
+                          <>
+                            <Rocket className="w-3 h-3 mr-1.5" />
+                            Deploy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             );
@@ -908,7 +900,9 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
               <Button
                 onClick={() => {
                   // Check if all pipelines have build numbers
-                  const allBuildNumbers = project.pipelines.every(p => buildNumbers[p.id]);
+                  const allBuildNumbers = project.pipelines.every(p => 
+                    inputValues[p.id]?.build_number || buildNumbers[p.id]
+                  );
                   if (!allBuildNumbers) {
                     setError('Please enter build numbers for all pipelines');
                     return;
