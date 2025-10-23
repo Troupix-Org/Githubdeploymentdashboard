@@ -533,20 +533,21 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="hover:bg-[#f3f4f6]">
+          <Button variant="ghost" onClick={onBack} className="hover:bg-slate-700" style={{ color: '#e9d5ff' }}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
           <div>
-            <h2 className="text-2xl" style={{ color: '#1f2937' }}>{project.name}</h2>
-            <p style={{ color: '#6b7280' }}>
+            <h2 className="text-2xl" style={{ color: '#e9d5ff' }}>{project.name}</h2>
+            <p style={{ color: '#cbd5e1' }}>
               {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
             </p>
           </div>
         </div>
         <Button
           onClick={() => setShowReleaseDialog(true)}
-          className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+          className="text-white"
+          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
         >
           Create Release
         </Button>
@@ -554,14 +555,15 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
 
       {/* Repositories Overview */}
       <Collapsible open={repositoriesOpen} onOpenChange={setRepositoriesOpen}>
-        <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+        <Card className="border-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="p-0 h-auto hover:bg-transparent" style={{ color: '#1f2937' }}>
+                <Button variant="ghost" className="p-0 h-auto hover:bg-transparent">
                   <div className="flex items-center gap-2">
-                    <CardTitle style={{ color: '#1f2937' }}>Repositories</CardTitle>
-                    {repositoriesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    <FolderGit2 className="w-5 h-5" style={{ color: '#7c3aed' }} />
+                    <CardTitle style={{ color: '#6b21a8' }}>Repositories</CardTitle>
+                    {repositoriesOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
                   </div>
                 </Button>
               </CollapsibleTrigger>
@@ -569,9 +571,9 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                 variant="outline" 
                 className="text-xs px-2 py-1" 
                 style={{ 
-                  background: '#dbeafe', 
-                  color: '#1e40af', 
-                  border: '1px solid #60a5fa' 
+                  background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', 
+                  color: '#6b21a8', 
+                  border: '2px solid #a78bfa' 
                 }}
               >
                 Latest QA Release Builds
@@ -587,16 +589,16 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
               return (
                 <Card
                   key={repo.id}
-                  className="border-[#e5e7eb]"
-                  style={{ background: '#f9fafb' }}
+                  className="border-2"
+                  style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#c4b5fd' }}
                 >
                   <CardContent className="pt-4 space-y-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <FolderGit2 className="w-4 h-4 flex-shrink-0" style={{ color: '#6b7280' }} />
+                        <FolderGit2 className="w-4 h-4 flex-shrink-0" style={{ color: '#8b5cf6' }} />
                         <div className="flex-1 min-w-0">
-                          <p className="truncate" style={{ color: '#1f2937' }}>{repo.name}</p>
-                          <p className="text-xs truncate" style={{ color: '#6b7280' }}>
+                          <p className="truncate font-semibold" style={{ color: '#6b21a8' }}>{repo.name}</p>
+                          <p className="text-xs truncate" style={{ color: '#7c3aed' }}>
                             {repo.owner}/{repo.repo}
                           </p>
                         </div>
@@ -610,32 +612,32 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
 
                     {/* QA Release Build Info */}
                     {qaInfo?.loading ? (
-                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded border border-[#d1d5db]" style={{ background: '#ffffff', color: '#6b7280' }}>
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded border" style={{ background: '#faf5ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         <span>Loading...</span>
                       </div>
                     ) : qaInfo?.commit ? (
-                      <div className="space-y-2 px-2 py-2 rounded border border-[#d1d5db]" style={{ background: '#ffffff' }}>
+                      <div className="space-y-2 px-2 py-2 rounded border" style={{ background: '#fefcff', borderColor: '#ddd6fe' }}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5">
-                            <GitBranch className="w-3 h-3" style={{ color: '#6b7280' }} />
-                            <span className="text-xs" style={{ color: '#6b7280' }}>qarelease</span>
+                            <GitBranch className="w-3 h-3" style={{ color: '#8b5cf6' }} />
+                            <span className="text-xs font-medium" style={{ color: '#7c3aed' }}>qarelease</span>
                           </div>
                           {qaInfo.buildNumber && (
-                            <span className="text-xs" style={{ color: '#6b7280' }}>
+                            <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ color: '#6b21a8', background: '#ede9fe' }}>
                               {qaInfo.buildNumber}
                             </span>
                           )}
                         </div>
                         
                         <div className="flex items-start gap-1.5">
-                          <GitCommit className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#6b7280' }} />
+                          <GitCommit className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#8b5cf6' }} />
                           <div className="flex-1 min-w-0 space-y-1">
-                            <p className="text-xs truncate" style={{ color: '#1f2937' }} title={qaInfo.commit.message}>
+                            <p className="text-xs truncate font-medium" style={{ color: '#1f2937' }} title={qaInfo.commit.message}>
                               {qaInfo.commit.message}
                             </p>
                             <div className="flex flex-col gap-1">
-                              <code className="text-xs px-1.5 py-0.5 rounded truncate" style={{ background: '#e5e7eb', color: '#6b7280' }}>
+                              <code className="text-xs px-1.5 py-0.5 rounded truncate" style={{ background: '#ede9fe', color: '#6b21a8' }}>
                                 {qaInfo.commit.sha}
                               </code>
                               <div className="flex flex-col gap-0.5">
@@ -653,7 +655,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs inline-flex items-center gap-1 hover:underline"
-                                style={{ color: '#2563eb' }}
+                                style={{ color: '#7c3aed' }}
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 View workflow
@@ -664,7 +666,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs px-2 py-1.5 rounded border border-[#d1d5db]" style={{ background: '#ffffff', color: '#9ca3af' }}>
+                      <div className="text-xs px-2 py-1.5 rounded border" style={{ background: '#faf5ff', color: '#a855f7', borderColor: '#ddd6fe' }}>
                         No qarelease builds found
                       </div>
                     )}
@@ -680,15 +682,16 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
 
       {/* Deploy Section */}
       <Collapsible open={deployOpen} onOpenChange={setDeployOpen}>
-        <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+        <Card className="border-[#e5e7eb]" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)' }}>
           <CardHeader>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="p-0 h-auto hover:bg-transparent w-full">
                 <div className="flex items-start justify-between w-full">
                   <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <CardTitle style={{ color: '#1f2937' }}>Deploy</CardTitle>
-                      {deployOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#1f2937' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#1f2937' }} />}
+                      <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
+                      <CardTitle style={{ color: '#6b21a8' }}>Deploy</CardTitle>
+                      {deployOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
                     </div>
                     <CardDescription style={{ color: '#6b7280' }}>
                       Trigger a new deployment for this project
@@ -701,10 +704,10 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           <CollapsibleContent>
             <CardContent className="space-y-4">
           {/* Global Release Number */}
-          <div className="p-3 rounded-lg border-2 border-[#2563eb] space-y-2" style={{ background: '#eff6ff' }}>
-            <Label htmlFor="global-release" style={{ color: '#1f2937' }} className="flex items-center gap-2">
+          <div className="p-3 rounded-lg border-2 space-y-2" style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)', borderColor: '#7c3aed' }}>
+            <Label htmlFor="global-release" style={{ color: '#6b21a8' }} className="flex items-center gap-2 font-semibold">
               <span>Global Release Number (Optional)</span>
-              <Badge variant="outline" className="border-[#2563eb] text-xs" style={{ color: '#2563eb', background: '#ffffff' }}>
+              <Badge variant="outline" className="text-xs" style={{ color: '#7c3aed', background: '#ffffff', borderColor: '#a78bfa' }}>
                 Applies to all deployments
               </Badge>
             </Label>
@@ -731,23 +734,26 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
             return (
               <div 
                 key={pipeline.id} 
-                className="p-2.5 rounded-lg border border-[#e5e7eb] space-y-2"
-                style={{ background: '#f9fafb' }}
+                className="p-2.5 rounded-lg border-2 space-y-2"
+                style={{ background: 'linear-gradient(to right, #fefcff, #faf5ff)', borderColor: '#c4b5fd' }}
               >
                 {/* Pipeline Header */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <div className="text-sm" style={{ color: '#1f2937' }}>
-                      {pipeline.name}
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(to bottom, #7c3aed, #a78bfa)' }}></div>
+                      <div className="text-base font-semibold" style={{ color: '#6b21a8' }}>
+                        {pipeline.name}
+                      </div>
                     </div>
                     {repo && (
                       <div className="flex items-center gap-3 text-xs" style={{ color: '#6b7280' }}>
                         <div className="flex items-center gap-1">
-                          <FolderGit2 className="w-3 h-3" />
+                          <FolderGit2 className="w-3 h-3" style={{ color: '#8b5cf6' }} />
                           <span>{repo.owner}/{repo.repo}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <GitBranch className="w-3 h-3" />
+                          <GitBranch className="w-3 h-3" style={{ color: '#8b5cf6' }} />
                           <span>{pipeline.branch}</span>
                         </div>
                       </div>
@@ -755,8 +761,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                   </div>
                   {qaReleaseBuilds[pipeline.id]?.buildNumber && buildNumberInput && (
                     <div 
-                      className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80" 
-                      style={{ color: '#6b7280' }}
+                      className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all" 
+                      style={{ color: '#7c3aed' }}
                       onClick={() => setInputValues(prev => ({
                         ...prev,
                         [pipeline.id]: {
@@ -769,8 +775,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       <GitBranch className="w-3 h-3" />
                       <span>qa:</span>
                       <code 
-                        className="px-1.5 py-0.5 rounded" 
-                        style={{ background: '#dbeafe', color: '#2563eb' }}
+                        className="px-1.5 py-0.5 rounded font-semibold" 
+                        style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
                       >
                         {qaReleaseBuilds[pipeline.id]?.buildNumber}
                       </code>
@@ -789,9 +795,9 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                         
                         return (
                           <div key={input.name} className="space-y-0.5">
-                            <Label htmlFor={`input-${pipeline.id}-${input.name}`} className="text-xs" style={{ color: '#374151' }}>
+                            <Label htmlFor={`input-${pipeline.id}-${input.name}`} className="text-xs font-medium" style={{ color: '#6b21a8' }}>
                               {input.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              {input.required && <span style={{ color: '#ef4444' }}> *</span>}
+                              {input.required && <span style={{ color: '#ec4899' }}> *</span>}
                             </Label>
                             {input.type === 'boolean' ? (
                               <div className="flex items-center space-x-2 h-8 px-3 border border-[#d1d5db] rounded-md" style={{ background: '#ffffff' }}>
@@ -877,7 +883,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       <Button
                         onClick={() => handleDeploy(pipeline.id)}
                         disabled={loadingPipelines[pipeline.id]}
-                        className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white h-8 text-xs px-3"
+                        className="text-white h-8 text-xs px-3"
+                        style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
                       >
                         {loadingPipelines[pipeline.id] ? (
                           <>
@@ -915,7 +922,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                   setShowDeployAllDialog(true);
                 }}
                 variant="outline"
-                className="w-full border-[#2563eb] text-[#2563eb] hover:bg-[#eff6ff]"
+                className="w-full border-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50"
+                style={{ borderColor: '#a855f7', color: '#7c3aed' }}
               >
                 <Rocket className="w-4 h-4 mr-2" />
                 Deploy All Pipelines ({project.pipelines.length})
@@ -943,17 +951,18 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
 
       {/* Deployment History */}
       <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
-        <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+        <Card className="border-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" className="p-0 h-auto hover:bg-transparent">
                   <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <CardTitle style={{ color: '#1f2937' }}>Deployment History</CardTitle>
-                      {historyOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <Clock className="w-5 h-5" style={{ color: '#7c3aed' }} />
+                      <CardTitle style={{ color: '#6b21a8' }}>Deployment History</CardTitle>
+                      {historyOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
                     </div>
-                    <CardDescription style={{ color: '#6b7280' }}>
+                    <CardDescription style={{ color: '#7c3aed' }}>
                       Recent deployments for all pipelines
                     </CardDescription>
                   </div>
@@ -964,8 +973,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
               variant="outline"
               onClick={refreshDeploymentStatus}
               disabled={refreshing}
-              className="border-[#d1d5db] hover:bg-[#f3f4f6]"
-              style={{ color: '#374151' }}
+              className="border-2 hover:bg-purple-50"
+              style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh
@@ -975,7 +984,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           <CollapsibleContent>
             <CardContent>
           {deployments.length === 0 ? (
-            <div className="text-center py-8" style={{ color: '#6b7280' }}>
+            <div className="text-center py-8" style={{ color: '#7c3aed' }}>
               No deployments yet. Start your first deployment above.
             </div>
           ) : (
@@ -991,11 +1000,11 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                     return (
                       <div key={groupKey} className="space-y-2">
                         {/* Global Release Header */}
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#dbeafe' }}>
-                          <Badge className="text-sm" style={{ background: '#2563eb', color: '#ffffff' }}>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border-2" style={{ background: 'linear-gradient(135deg, #ede9fe 0%, #fae8ff 100%)', borderColor: '#c4b5fd' }}>
+                          <Badge className="text-sm" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', color: '#ffffff', boxShadow: '0 2px 4px rgba(124, 58, 237, 0.2)' }}>
                             Release {globalRelease}
                           </Badge>
-                          <span className="text-xs" style={{ color: '#1e40af' }}>
+                          <span className="text-xs font-semibold" style={{ color: '#6b21a8' }}>
                             {groupDeployments.length} deployment{groupDeployments.length > 1 ? 's' : ''}
                           </span>
                         </div>
@@ -1008,8 +1017,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                             return (
                               <Card
                                 key={deployment.id}
-                                className="border-[#e5e7eb]"
-                                style={{ background: '#f9fafb' }}
+                                className="border-2"
+                                style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#ddd6fe' }}
                               >
                                 <CardContent className="pt-4 pb-4">
                                   <div className="flex items-center justify-between">
@@ -1017,17 +1026,17 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                       {getStatusIcon(deployment.status)}
                                       <div className="flex-1">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-sm" style={{ color: '#1f2937' }}>
+                                          <span className="text-sm font-semibold" style={{ color: '#6b21a8' }}>
                                             Build {deployment.buildNumber}
                                           </span>
                                           {getStatusBadge(deployment.status)}
                                           {pipeline && (
-                                            <Badge variant="outline" className="border-[#d1d5db] text-xs" style={{ color: '#6b7280', background: '#ffffff' }}>
+                                            <Badge variant="outline" className="border text-xs" style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}>
                                               {pipeline.name}
                                             </Badge>
                                           )}
                                         </div>
-                                        <p className="text-xs mt-1" style={{ color: '#6b7280' }}>
+                                        <p className="text-xs mt-1" style={{ color: '#7c3aed' }}>
                                           {formatDate(deployment.startedAt)}
                                           {deployment.completedAt && ` • Completed`}
                                           {deployment.workflowRunId && ` • Run #${deployment.workflowRunId}`}
@@ -1044,10 +1053,10 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                             '_blank'
                                           );
                                         }}
-                                        className="hover:bg-[#f3f4f6]"
+                                        className="hover:bg-purple-50"
                                         title={`View workflow run #${deployment.workflowRunId} on GitHub`}
                                       >
-                                        <ExternalLink className="w-3 h-3" style={{ color: '#2563eb' }} />
+                                        <ExternalLink className="w-3 h-3" style={{ color: '#7c3aed' }} />
                                       </Button>
                                     )}
                                   </div>
@@ -1066,8 +1075,8 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                     return (
                       <Card
                         key={deployment.id}
-                        className="border-[#e5e7eb]"
-                        style={{ background: '#f9fafb' }}
+                        className="border-2"
+                        style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#ddd6fe' }}
                       >
                         <CardContent className="pt-6">
                           <div className="flex items-center justify-between">
@@ -1075,20 +1084,20 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                               {getStatusIcon(deployment.status)}
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 flex-wrap">
-                                  <span style={{ color: '#1f2937' }}>Release {deployment.buildNumber}</span>
+                                  <span className="font-semibold" style={{ color: '#6b21a8' }}>Release {deployment.buildNumber}</span>
                                   {getStatusBadge(deployment.status)}
                                   {pipeline && (
-                                    <Badge variant="outline" className="border-[#d1d5db] text-xs" style={{ color: '#6b7280', background: '#ffffff' }}>
+                                    <Badge variant="outline" className="border text-xs" style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}>
                                       {pipeline.name}
                                     </Badge>
                                   )}
                                   {repo && (
-                                    <span className="text-sm" style={{ color: '#6b7280' }}>
+                                    <span className="text-sm" style={{ color: '#7c3aed' }}>
                                       {repo.name}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
+                                <p className="text-sm mt-1" style={{ color: '#7c3aed' }}>
                                   Started {formatDate(deployment.startedAt)}
                                   {deployment.completedAt && ` • Completed ${formatDate(deployment.completedAt)}`}
                                   {deployment.workflowRunId && ` • Run #${deployment.workflowRunId}`}
@@ -1105,10 +1114,10 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                     '_blank'
                                   );
                                 }}
-                                className="hover:bg-[#f3f4f6]"
+                                className="hover:bg-purple-50"
                                 title={`View workflow run #${deployment.workflowRunId} on GitHub`}
                               >
-                                <ExternalLink className="w-4 h-4" style={{ color: '#2563eb' }} />
+                                <ExternalLink className="w-4 h-4" style={{ color: '#7c3aed' }} />
                               </Button>
                             )}
                           </div>

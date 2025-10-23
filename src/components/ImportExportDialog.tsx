@@ -99,15 +99,15 @@ export function ImportExportDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl max-h-[85vh] border-[#e5e7eb] flex flex-col"
-        style={{ background: '#ffffff' }}
+        className="max-w-2xl max-h-[85vh] border-2 flex flex-col"
+        style={{ background: 'linear-gradient(to bottom, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}
       >
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle style={{ color: '#1f2937' }}>
-            <FileJson className="w-5 h-5 inline mr-2" />
+          <DialogTitle style={{ color: '#6b21a8' }}>
+            <FileJson className="w-5 h-5 inline mr-2" style={{ color: '#7c3aed' }} />
             Import / Export Project
           </DialogTitle>
-          <DialogDescription style={{ color: '#6b7280' }}>
+          <DialogDescription style={{ color: '#7c3aed' }}>
             Share your project configuration or import from others
           </DialogDescription>
         </DialogHeader>

@@ -63,7 +63,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #1e2875 0%, #0d4a7a 100%)' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)' }}>
       <Header onLogout={handleLogout} />
       
       <main className="container mx-auto px-6 py-8">

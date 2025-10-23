@@ -49,24 +49,24 @@ export function TokenSetup({ onTokenSaved }: TokenSetupProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #1e2875 0%, #0d4a7a 100%)' }}>
-      <Card className="w-full max-w-md border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #6b21a8 0%, #7c3aed 50%, #a855f7 100%)' }}>
+      <Card className="w-full max-w-md border-2 shadow-2xl" style={{ background: 'linear-gradient(to bottom, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            <div className="p-4 rounded-full" style={{ background: '#f3f4f6' }}>
-              <Github className="w-8 h-8" style={{ color: '#1f2937' }} />
+            <div className="p-4 rounded-full" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)' }}>
+              <Github className="w-8 h-8" style={{ color: '#ffffff' }} />
             </div>
           </div>
-          <CardTitle className="text-center" style={{ color: '#1f2937' }}>GitHub Deploy Manager</CardTitle>
-          <CardDescription className="text-center" style={{ color: '#6b7280' }}>
+          <CardTitle className="text-center" style={{ color: '#6b21a8' }}>GitHub Deploy Manager</CardTitle>
+          <CardDescription className="text-center" style={{ color: '#7c3aed' }}>
             Enter your GitHub Personal Access Token to get started
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="token" style={{ color: '#374151' }}>Personal Access Token</Label>
+            <Label htmlFor="token" className="font-medium" style={{ color: '#6b21a8' }}>Personal Access Token</Label>
             <div className="relative">
-              <KeyRound className="absolute left-3 top-3 h-4 w-4" style={{ color: '#9ca3af' }} />
+              <KeyRound className="absolute left-3 top-3 h-4 w-4" style={{ color: '#a855f7' }} />
               <Input
                 id="token"
                 type="password"
@@ -74,25 +74,25 @@ export function TokenSetup({ onTokenSaved }: TokenSetupProps) {
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-                className="pl-10 border-[#d1d5db]"
-                style={{ background: '#f9fafb', color: '#1f2937' }}
+                className="pl-10 border-2"
+                style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
                 disabled={loading}
               />
             </div>
-            <p className="text-xs" style={{ color: '#6b7280' }}>
-              Required scopes: <span style={{ color: '#2563eb' }}>repo, workflow</span>
+            <p className="text-xs" style={{ color: '#7c3aed' }}>
+              Required scopes: <span className="font-semibold" style={{ color: '#a855f7' }}>repo, workflow</span>
             </p>
           </div>
 
           {error && (
-            <Alert className="border-[#ef4444] bg-[#fef2f2]">
-              <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
-              <AlertDescription style={{ color: '#dc2626' }}>{error}</AlertDescription>
+            <Alert className="border-2" style={{ background: 'linear-gradient(to right, #fef2f2, #fce7f3)', borderColor: '#fda4af' }}>
+              <AlertCircle className="h-4 w-4" style={{ color: '#ec4899' }} />
+              <AlertDescription style={{ color: '#be123c' }}>{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
-            <Alert className="border-[#10b981] bg-[#f0fdf4]">
+            <Alert className="border-2" style={{ background: 'linear-gradient(to right, #f0fdf4, #ede9fe)', borderColor: '#a7f3d0' }}>
               <CheckCircle2 className="h-4 w-4" style={{ color: '#10b981' }} />
               <AlertDescription style={{ color: '#059669' }}>
                 Token verified successfully!
@@ -103,20 +103,21 @@ export function TokenSetup({ onTokenSaved }: TokenSetupProps) {
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+            className="w-full text-white"
+            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)' }}
           >
             {loading ? 'Verifying...' : 'Save & Continue'}
           </Button>
 
-          <div className="pt-4 border-t border-[#e5e7eb]">
-            <p className="text-xs text-center" style={{ color: '#6b7280' }}>
+          <div className="pt-4 border-t-2" style={{ borderColor: '#e9d5ff' }}>
+            <p className="text-xs text-center" style={{ color: '#7c3aed' }}>
               Don't have a token?{' '}
               <a
                 href="https://github.com/settings/tokens/new?scopes=repo,workflow"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline"
-                style={{ color: '#2563eb' }}
+                className="underline font-semibold"
+                style={{ color: '#a855f7' }}
               >
                 Create one here
               </a>

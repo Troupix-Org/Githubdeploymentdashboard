@@ -58,23 +58,23 @@ export function ReleaseCreator({ repository, onSuccess, onCancel }: ReleaseCreat
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="tag-name" style={{ color: '#374151' }}>
-            Tag Name *
+          <Label htmlFor="tag-name" className="font-medium" style={{ color: '#6b21a8' }}>
+            Tag Name <span style={{ color: '#ec4899' }}>*</span>
           </Label>
           <Input
             id="tag-name"
             placeholder="v1.0.0"
             value={tagName}
             onChange={(e) => setTagName(e.target.value)}
-            className="border-[#d1d5db]"
-            style={{ background: '#f9fafb', color: '#1f2937' }}
+            className="border-2"
+            style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
           />
-          <p className="text-xs" style={{ color: '#6b7280' }}>
+          <p className="text-xs" style={{ color: '#7c3aed' }}>
             The tag will be created if it doesn't exist
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="branch" style={{ color: '#374151' }}>
+          <Label htmlFor="branch" className="font-medium" style={{ color: '#6b21a8' }}>
             Target Branch
           </Label>
           <Input
@@ -82,28 +82,28 @@ export function ReleaseCreator({ repository, onSuccess, onCancel }: ReleaseCreat
             placeholder="main"
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
-            className="border-[#d1d5db]"
-            style={{ background: '#f9fafb', color: '#1f2937' }}
+            className="border-2"
+            style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
           />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="release-name" style={{ color: '#374151' }}>
-          Release Name *
+        <Label htmlFor="release-name" className="font-medium" style={{ color: '#6b21a8' }}>
+          Release Name <span style={{ color: '#ec4899' }}>*</span>
         </Label>
         <Input
           id="release-name"
           placeholder="Version 1.0.0 - Production Release"
           value={releaseName}
           onChange={(e) => setReleaseName(e.target.value)}
-          className="border-[#d1d5db]"
-          style={{ background: '#f9fafb', color: '#1f2937' }}
+          className="border-2"
+          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="release-notes" style={{ color: '#374151' }}>
+        <Label htmlFor="release-notes" className="font-medium" style={{ color: '#6b21a8' }}>
           Release Notes
         </Label>
         <Textarea
@@ -112,18 +112,18 @@ export function ReleaseCreator({ repository, onSuccess, onCancel }: ReleaseCreat
           value={releaseNotes}
           onChange={(e) => setReleaseNotes(e.target.value)}
           rows={10}
-          className="border-[#d1d5db] font-mono text-sm"
-          style={{ background: '#f9fafb', color: '#1f2937' }}
+          className="border-2 font-mono text-sm"
+          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
         />
-        <p className="text-xs" style={{ color: '#6b7280' }}>
+        <p className="text-xs" style={{ color: '#7c3aed' }}>
           Supports Markdown formatting
         </p>
       </div>
 
       {error && (
-        <Alert className="border-[#ef4444] bg-[#fef2f2]">
-          <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
-          <AlertDescription style={{ color: '#dc2626' }}>{error}</AlertDescription>
+        <Alert className="border-2" style={{ background: 'linear-gradient(to right, #fef2f2, #fce7f3)', borderColor: '#fda4af' }}>
+          <AlertCircle className="h-4 w-4" style={{ color: '#ec4899' }} />
+          <AlertDescription style={{ color: '#be123c' }}>{error}</AlertDescription>
         </Alert>
       )}
 
@@ -132,15 +132,16 @@ export function ReleaseCreator({ repository, onSuccess, onCancel }: ReleaseCreat
           variant="outline"
           onClick={onCancel}
           disabled={loading}
-          className="border-[#d1d5db] hover:bg-[#f3f4f6]"
-          style={{ color: '#374151' }}
+          className="border-2 hover:bg-purple-50"
+          style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
         >
           Cancel
         </Button>
         <Button
           onClick={handleCreate}
           disabled={loading || !repository}
-          className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+          className="text-white"
+          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
         >
           {loading ? (
             <>

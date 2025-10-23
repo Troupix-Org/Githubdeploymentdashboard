@@ -172,16 +172,16 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
           <Button
             variant="ghost"
             onClick={onBack}
-            className="hover:bg-[#f3f4f6]"
+            className="hover:bg-purple-50"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            <ArrowLeft className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
+            <span style={{ color: '#7c3aed' }}>Back</span>
           </Button>
           <div>
-            <h2 className="text-2xl" style={{ color: '#1f2937' }}>
+            <h2 className="text-2xl" style={{ color: '#6b21a8' }}>
               {project ? 'Edit Project' : 'New Project'}
             </h2>
-            <p style={{ color: '#6b7280' }}>
+            <p style={{ color: '#7c3aed' }}>
               Configure your GitHub repositories and deployment pipelines
             </p>
           </div>
@@ -190,8 +190,8 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
           <Button
             onClick={() => setShowExportDialog(true)}
             variant="outline"
-            className="border-[#d1d5db] hover:bg-[#f3f4f6]"
-            style={{ color: '#374151' }}
+            className="border-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50"
+            style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
           >
             <Share2 className="w-4 h-4 mr-2" />
             Export
@@ -199,41 +199,42 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
         )}
       </div>
 
-      <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+      <Card className="border-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
         <CardHeader>
-          <CardTitle style={{ color: '#1f2937' }}>Project Details</CardTitle>
-          <CardDescription style={{ color: '#6b7280' }}>
+          <CardTitle style={{ color: '#6b21a8' }}>Project Details</CardTitle>
+          <CardDescription style={{ color: '#7c3aed' }}>
             Basic information about your project
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name" style={{ color: '#374151' }}>Project Name</Label>
+            <Label htmlFor="name" className="font-medium" style={{ color: '#6b21a8' }}>Project Name</Label>
             <Input
               id="name"
               placeholder="My App"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="border-[#d1d5db]"
-              style={{ background: '#f9fafb', color: '#1f2937' }}
+              className="border-2"
+              style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+      <Card className="border-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle style={{ color: '#1f2937' }}>Repositories</CardTitle>
-              <CardDescription style={{ color: '#6b7280' }}>
+              <CardTitle style={{ color: '#6b21a8' }}>Repositories</CardTitle>
+              <CardDescription style={{ color: '#7c3aed' }}>
                 GitHub repositories associated with this project
               </CardDescription>
             </div>
             <Button
               onClick={handleAddRepository}
               size="sm"
-              className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+              className="text-white"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Repository
@@ -242,7 +243,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
         </CardHeader>
         <CardContent>
           {repositories.length === 0 ? (
-            <div className="text-center py-8" style={{ color: '#6b7280' }}>
+            <div className="text-center py-8" style={{ color: '#7c3aed' }}>
               No repositories configured. Click "Add Repository" to get started.
             </div>
           ) : (
@@ -250,59 +251,59 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
               {repositories.map((repo) => (
                 <Card
                   key={repo.id}
-                  className="border-[#e5e7eb]"
-                  style={{ background: '#f9fafb' }}
+                  className="border-2"
+                  style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#c4b5fd' }}
                 >
                   <CardContent className="pt-6 space-y-3">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="truncate" style={{ color: '#1f2937' }}>
+                      <h3 className="truncate font-semibold" style={{ color: '#6b21a8' }}>
                         {repo.name || 'Unnamed Repository'}
                       </h3>
                       <Button
                         size="icon"
                         variant="ghost"
                         onClick={() => handleRemoveRepository(repo.id)}
-                        className="hover:bg-[#f3f4f6] h-6 w-6 shrink-0"
+                        className="hover:bg-red-50 h-6 w-6 shrink-0"
                       >
-                        <Trash2 className="w-3 h-3" style={{ color: '#ef4444' }} />
+                        <Trash2 className="w-3 h-3" style={{ color: '#ec4899' }} />
                       </Button>
                     </div>
                     
                     <div className="space-y-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs" style={{ color: '#374151' }}>Repository Name</Label>
+                        <Label className="text-xs font-medium" style={{ color: '#6b21a8' }}>Repository Name</Label>
                         <Input
                           placeholder="Frontend"
                           value={repo.name}
                           onChange={(e) =>
                             handleUpdateRepository(repo.id, 'name', e.target.value)
                           }
-                          className="border-[#d1d5db] h-8 text-xs"
-                          style={{ background: '#ffffff', color: '#1f2937' }}
+                          className="border h-8 text-xs"
+                          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs" style={{ color: '#374151' }}>Owner</Label>
+                        <Label className="text-xs font-medium" style={{ color: '#6b21a8' }}>Owner</Label>
                         <Input
                           placeholder="username or org"
                           value={repo.owner}
                           onChange={(e) =>
                             handleUpdateRepository(repo.id, 'owner', e.target.value)
                           }
-                          className="border-[#d1d5db] h-8 text-xs"
-                          style={{ background: '#ffffff', color: '#1f2937' }}
+                          className="border h-8 text-xs"
+                          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs" style={{ color: '#374151' }}>Repository</Label>
+                        <Label className="text-xs font-medium" style={{ color: '#6b21a8' }}>Repository</Label>
                         <Input
                           placeholder="my-repo"
                           value={repo.repo}
                           onChange={(e) =>
                             handleUpdateRepository(repo.id, 'repo', e.target.value)
                           }
-                          className="border-[#d1d5db] h-8 text-xs"
-                          style={{ background: '#ffffff', color: '#1f2937' }}
+                          className="border h-8 text-xs"
+                          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                         />
                       </div>
                     </div>
@@ -312,8 +313,8 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                       disabled={loadingWorkflows[repo.id] || !repo.owner || !repo.repo}
                       variant="outline"
                       size="sm"
-                      className="border-[#d1d5db] hover:bg-[#f3f4f6] w-full h-8 text-xs"
-                      style={{ color: '#374151' }}
+                      className="border-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 w-full h-8 text-xs"
+                      style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
                     >
                       {loadingWorkflows[repo.id] ? (
                         <>
@@ -332,19 +333,20 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
         </CardContent>
       </Card>
 
-      <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+      <Card className="border-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle style={{ color: '#1f2937' }}>Pipelines</CardTitle>
-              <CardDescription style={{ color: '#6b7280' }}>
+              <CardTitle style={{ color: '#6b21a8' }}>Pipelines</CardTitle>
+              <CardDescription style={{ color: '#7c3aed' }}>
                 Configure deployment pipelines for this project
               </CardDescription>
             </div>
             <Button
               onClick={handleAddPipeline}
               size="sm"
-              className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+              className="text-white"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
               disabled={repositories.length === 0}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -354,21 +356,21 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
         </CardHeader>
         <CardContent className="space-y-4">
           {pipelines.length === 0 ? (
-            <div className="text-center py-8" style={{ color: '#6b7280' }}>
+            <div className="text-center py-8" style={{ color: '#7c3aed' }}>
               No pipelines configured. Click "Add Pipeline" to get started.
             </div>
           ) : (
             pipelines.map((pipeline) => (
               <Card
                 key={pipeline.id}
-                className="border-[#e5e7eb]"
-                style={{ background: '#f9fafb' }}
+                className="border-2"
+                style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#c4b5fd' }}
               >
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Repository</Label>
+                        <Label className="font-medium" style={{ color: '#6b21a8' }}>Repository</Label>
                         <Select
                           value={pipeline.repositoryId}
                           onValueChange={(value) =>
@@ -376,14 +378,14 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                           }
                         >
                           <SelectTrigger
-                            className="border-[#d1d5db]"
-                            style={{ background: '#ffffff', color: '#1f2937' }}
+                            className="border"
+                            style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                           >
                             <SelectValue placeholder="Select repository" />
                           </SelectTrigger>
                           <SelectContent
-                            className="border-[#e5e7eb]"
-                            style={{ background: '#ffffff' }}
+                            className="border-2"
+                            style={{ background: '#ffffff', borderColor: '#e9d5ff' }}
                           >
                             {repositories.map((repo) => (
                               <SelectItem key={repo.id} value={repo.id}>
@@ -394,19 +396,19 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Pipeline Name</Label>
+                        <Label className="font-medium" style={{ color: '#6b21a8' }}>Pipeline Name</Label>
                         <Input
                           placeholder="Production Deploy"
                           value={pipeline.name}
                           onChange={(e) =>
                             handleUpdatePipeline(pipeline.id, 'name', e.target.value)
                           }
-                          className="border-[#d1d5db]"
-                          style={{ background: '#ffffff', color: '#1f2937' }}
+                          className="border"
+                          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Workflow File</Label>
+                        <Label className="font-medium" style={{ color: '#6b21a8' }}>Workflow File</Label>
                         {workflows[pipeline.repositoryId]?.length > 0 ? (
                           <Select
                             value={pipeline.workflowFile}
@@ -415,14 +417,14 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                             }
                           >
                             <SelectTrigger
-                              className="border-[#d1d5db]"
-                              style={{ background: '#ffffff', color: '#1f2937' }}
+                              className="border"
+                              style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                             >
                               <SelectValue placeholder="Select workflow" />
                             </SelectTrigger>
                             <SelectContent
-                              className="border-[#e5e7eb]"
-                              style={{ background: '#ffffff' }}
+                              className="border-2"
+                              style={{ background: '#ffffff', borderColor: '#e9d5ff' }}
                             >
                               {workflows[pipeline.repositoryId].map((wf) => (
                                 <SelectItem key={wf.id} value={wf.path.split('/').pop() || wf.path}>
@@ -438,21 +440,21 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                             onChange={(e) =>
                               handleUpdatePipeline(pipeline.id, 'workflowFile', e.target.value)
                             }
-                            className="border-[#d1d5db]"
-                            style={{ background: '#ffffff', color: '#1f2937' }}
+                            className="border"
+                            style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                           />
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Branch</Label>
+                        <Label className="font-medium" style={{ color: '#6b21a8' }}>Branch</Label>
                         <Input
                           placeholder="main"
                           value={pipeline.branch}
                           onChange={(e) =>
                             handleUpdatePipeline(pipeline.id, 'branch', e.target.value)
                           }
-                          className="border-[#d1d5db]"
-                          style={{ background: '#ffffff', color: '#1f2937' }}
+                          className="border"
+                          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
                         />
                       </div>
                     </div>
@@ -460,9 +462,9 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                       size="icon"
                       variant="ghost"
                       onClick={() => handleRemovePipeline(pipeline.id)}
-                      className="hover:bg-[#f3f4f6] mt-7"
+                      className="hover:bg-red-50 mt-7"
                     >
-                      <Trash2 className="w-4 h-4" style={{ color: '#ef4444' }} />
+                      <Trash2 className="w-4 h-4" style={{ color: '#ec4899' }} />
                     </Button>
                   </div>
                 </CardContent>
@@ -473,9 +475,9 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
       </Card>
 
       {error && (
-        <Alert className="border-[#ef4444] bg-[#fef2f2]">
-          <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
-          <AlertDescription style={{ color: '#dc2626' }}>{error}</AlertDescription>
+        <Alert className="border-2" style={{ background: 'linear-gradient(to right, #fef2f2, #fce7f3)', borderColor: '#fda4af' }}>
+          <AlertCircle className="h-4 w-4" style={{ color: '#ec4899' }} />
+          <AlertDescription style={{ color: '#be123c' }}>{error}</AlertDescription>
         </Alert>
       )}
 
@@ -483,15 +485,16 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
         <Button
           variant="outline"
           onClick={onBack}
-          className="border-[#d1d5db] hover:bg-[#f3f4f6]"
-          style={{ color: '#374151' }}
+          className="border-2 hover:bg-purple-50"
+          style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
         >
           Cancel
         </Button>
         <Button
           onClick={handleSave}
           disabled={loading}
-          className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+          className="text-white"
+          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
         >
           {loading ? 'Saving...' : 'Save Project'}
         </Button>

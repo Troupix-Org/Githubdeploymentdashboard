@@ -15,16 +15,16 @@ export function Header({ onLogout }: HeaderProps) {
   };
 
   return (
-    <header className="border-b border-[#e5e7eb]" style={{ background: '#ffffff' }}>
+    <header className="border-b-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ background: '#f3f4f6' }}>
-              <Github className="w-6 h-6" style={{ color: '#1f2937' }} />
+            <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}>
+              <Github className="w-6 h-6" style={{ color: '#ffffff' }} />
             </div>
             <div>
-              <h1 style={{ color: '#1f2937' }}>GitHub Deploy Manager</h1>
-              <p className="text-sm" style={{ color: '#6b7280' }}>
+              <h1 style={{ color: '#6b21a8' }}>GitHub Deploy Manager</h1>
+              <p className="text-sm" style={{ color: '#7c3aed' }}>
                 Manage your deployments and releases
               </p>
             </div>
@@ -32,10 +32,10 @@ export function Header({ onLogout }: HeaderProps) {
           <Button
             variant="ghost"
             onClick={handleLogout}
-            className="hover:bg-[#f3f4f6]"
+            className="hover:bg-purple-50"
           >
-            <LogOut className="w-4 h-4 mr-2" style={{ color: '#6b7280' }} />
-            <span style={{ color: '#6b7280' }}>Logout</span>
+            <LogOut className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
+            <span style={{ color: '#7c3aed' }}>Logout</span>
           </Button>
         </div>
       </div>
