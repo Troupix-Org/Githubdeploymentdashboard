@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Plus, Folder, GitBranch, Trash2, Settings } from 'lucide-react';
-import { Project, getProjects, deleteProject } from '../lib/storage';
+import { Plus, Folder, GitBranch, Trash2, Settings, FileJson, Download } from 'lucide-react';
+import { Project, getProjects, deleteProject, downloadProjectAsJson } from '../lib/storage';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +13,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
+import { ImportExportDialog } from './ImportExportDialog';
+import { toast } from 'sonner@2.0.3';
 
 interface ProjectListProps {
   onAddProject: () => void;
@@ -23,6 +25,10 @@ interface ProjectListProps {
 export function ProjectList({ onAddProject, onSelectProject, onConfigureProject }: ProjectListProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [importExportDialog, setImportExportDialog] = useState<{
+    open: boolean;
+    project?: Project;
+  }>({ open: false });
 
   const loadProjects = async () => {
     const data = await getProjects();
@@ -39,6 +45,20 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
     loadProjects();
   };
 
+  const handleExport = (project: Project) => {
+    setImportExportDialog({ open: true, project });
+  };
+
+  const handleImport = () => {
+    setImportExportDialog({ open: true });
+  };
+
+  const handleQuickDownload = (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    downloadProjectAsJson(project);
+    toast.success(`${project.name} configuration downloaded!`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -46,13 +66,24 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
           <h2 className="text-2xl" style={{ color: '#1f2937' }}>Projects</h2>
           <p style={{ color: '#6b7280' }}>Manage your GitHub repositories and deployment pipelines</p>
         </div>
-        <Button
-          onClick={onAddProject}
-          className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          New project
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            onClick={handleImport}
+            variant="outline"
+            className="border-[#d1d5db] hover:bg-[#f3f4f6]"
+            style={{ color: '#374151' }}
+          >
+            <FileJson className="w-4 h-4 mr-2" />
+            Import
+          </Button>
+          <Button
+            onClick={onAddProject}
+            className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New project
+          </Button>
+        </div>
       </div>
 
       {projects.length === 0 ? (
@@ -88,7 +119,16 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
                       {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={(e) => handleQuickDownload(project, e)}
+                      className="h-8 w-8 hover:bg-[#f3f4f6]"
+                      title="Download configuration"
+                    >
+                      <Download className="w-4 h-4" style={{ color: '#6b7280' }} />
+                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -97,6 +137,7 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
                         onConfigureProject(project);
                       }}
                       className="h-8 w-8 hover:bg-[#f3f4f6]"
+                      title="Configure"
                     >
                       <Settings className="w-4 h-4" style={{ color: '#6b7280' }} />
                     </Button>
@@ -108,6 +149,7 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
                         setDeleteConfirm(project.id);
                       }}
                       className="h-8 w-8 hover:bg-[#f3f4f6]"
+                      title="Delete"
                     >
                       <Trash2 className="w-4 h-4" style={{ color: '#ef4444' }} />
                     </Button>
@@ -149,6 +191,13 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ImportExportDialog
+        open={importExportDialog.open}
+        onOpenChange={(open) => setImportExportDialog({ ...importExportDialog, open })}
+        project={importExportDialog.project}
+        onImportSuccess={loadProjects}
+      />
     </div>
   );
 }

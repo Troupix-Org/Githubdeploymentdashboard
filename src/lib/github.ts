@@ -1,5 +1,6 @@
 // GitHub API integration
 import { getGitHubToken } from "./storage";
+import yaml from "js-yaml";
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -18,6 +19,23 @@ interface GitHubWorkflowRun {
   created_at: string;
   updated_at: string;
   html_url: string;
+  head_branch: string;
+  head_sha: string;
+  head_commit?: {
+    message: string;
+    author: {
+      name: string;
+    };
+  };
+}
+
+export interface WorkflowInput {
+  name: string;
+  description?: string;
+  required?: boolean;
+  type?: "string" | "choice" | "boolean" | "number" | "environment";
+  default?: string | boolean | number;
+  options?: string[];
 }
 
 async function githubFetch(
@@ -88,10 +106,13 @@ export async function getWorkflowRuns(
   repo: string,
   workflowFile: string,
   limit: number = 10,
+  branch?: string,
 ): Promise<GitHubWorkflowRun[]> {
-  const data = await githubFetch(
-    `/repos/${owner}/${repo}/actions/workflows/${workflowFile}/runs?per_page=${limit}`,
-  );
+  let url = `/repos/${owner}/${repo}/actions/workflows/${workflowFile}/runs?per_page=${limit}`;
+  if (branch) {
+    url += `&branch=${encodeURIComponent(branch)}`;
+  }
+  const data = await githubFetch(url);
   return data.workflow_runs || [];
 }
 
@@ -142,4 +163,128 @@ export async function verifyToken(): Promise<{
 }> {
   const data = await githubFetch("/user");
   return { login: data.login, name: data.name };
+}
+
+export async function getCommit(
+  owner: string,
+  repo: string,
+  sha: string,
+): Promise<any> {
+  return await githubFetch(`/repos/${owner}/${repo}/commits/${sha}`);
+}
+
+export async function getLatestBuildForBranch(
+  owner: string,
+  repo: string,
+  workflowFile: string,
+  branch: string,
+): Promise<{
+  buildNumber?: string;
+  commit?: {
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+  };
+  status?: string;
+  conclusion?: string;
+  url?: string;
+} | null> {
+  try {
+    const runs = await getWorkflowRuns(owner, repo, workflowFile, 1, branch);
+    if (runs.length === 0) {
+      return null;
+    }
+
+    const latestRun = runs[0];
+    
+    // Try to extract build number from the run name or get commit details
+    const commit = await getCommit(owner, repo, latestRun.head_sha);
+    
+    return {
+      buildNumber: latestRun.name,
+      commit: {
+        sha: latestRun.head_sha.substring(0, 7),
+        message: commit.commit.message.split('\n')[0], // First line only
+        author: commit.commit.author.name,
+        date: commit.commit.author.date,
+      },
+      status: latestRun.status,
+      conclusion: latestRun.conclusion,
+      url: latestRun.html_url,
+    };
+  } catch (err) {
+    console.error('Failed to get latest build:', err);
+    return null;
+  }
+}
+
+export async function getWorkflowFileContent(
+  owner: string,
+  repo: string,
+  workflowFile: string,
+): Promise<string> {
+  const token = getGitHubToken();
+  if (!token) {
+    throw new Error("GitHub token not configured");
+  }
+
+  const path = workflowFile.startsWith('.github/workflows/') 
+    ? workflowFile 
+    : `.github/workflows/${workflowFile}`;
+
+  const response = await fetch(
+    `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${path}`,
+    {
+      headers: {
+        Authorization: `Token ${token}`,
+        Accept: "application/vnd.github.v3.raw",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ message: response.statusText }));
+    throw new Error(
+      error.message || `Failed to fetch workflow file: ${response.status}`,
+    );
+  }
+
+  return await response.text();
+}
+
+export async function getWorkflowInputs(
+  owner: string,
+  repo: string,
+  workflowFile: string,
+): Promise<WorkflowInput[]> {
+  try {
+    const content = await getWorkflowFileContent(owner, repo, workflowFile);
+    const parsed = yaml.load(content) as any;
+
+    if (!parsed?.on?.workflow_dispatch?.inputs) {
+      return [];
+    }
+
+    const inputs: WorkflowInput[] = [];
+    const inputsObj = parsed.on.workflow_dispatch.inputs;
+
+    for (const [name, config] of Object.entries(inputsObj as Record<string, any>)) {
+      inputs.push({
+        name,
+        description: config.description,
+        required: config.required === true,
+        type: config.type || "string",
+        default: config.default,
+        options: config.options,
+      });
+    }
+
+    return inputs;
+  } catch (err) {
+    console.error('Failed to parse workflow inputs:', err);
+    return [];
+  }
 }

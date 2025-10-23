@@ -4,7 +4,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { ArrowLeft, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, AlertCircle, Loader2, Share2 } from 'lucide-react';
 import { Project, Pipeline, Repository, saveProject } from '../lib/storage';
 import { listWorkflows } from '../lib/github';
 import {
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { ImportExportDialog } from './ImportExportDialog';
 
 interface ProjectConfigProps {
   project?: Project;
@@ -29,6 +30,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
   const [error, setError] = useState('');
   const [workflows, setWorkflows] = useState<{ [repoId: string]: any[] }>({});
   const [loadingWorkflows, setLoadingWorkflows] = useState<{ [repoId: string]: boolean }>({});
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -165,23 +167,36 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="hover:bg-[#f3f4f6]"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <div>
-          <h2 className="text-2xl" style={{ color: '#1f2937' }}>
-            {project ? 'Edit Project' : 'New Project'}
-          </h2>
-          <p style={{ color: '#6b7280' }}>
-            Configure your GitHub repositories and deployment pipelines
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={onBack}
+            className="hover:bg-[#f3f4f6]"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h2 className="text-2xl" style={{ color: '#1f2937' }}>
+              {project ? 'Edit Project' : 'New Project'}
+            </h2>
+            <p style={{ color: '#6b7280' }}>
+              Configure your GitHub repositories and deployment pipelines
+            </p>
+          </div>
         </div>
+        {project && (
+          <Button
+            onClick={() => setShowExportDialog(true)}
+            variant="outline"
+            className="border-[#d1d5db] hover:bg-[#f3f4f6]"
+            style={{ color: '#374151' }}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+        )}
       </div>
 
       <Card className="border-[#e5e7eb]" style={{ background: '#ffffff' }}>
@@ -474,6 +489,15 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
           {loading ? 'Saving...' : 'Save Project'}
         </Button>
       </div>
+
+      {project && (
+        <ImportExportDialog
+          open={showExportDialog}
+          onOpenChange={setShowExportDialog}
+          project={project}
+          onImportSuccess={onSaved}
+        />
+      )}
     </div>
   );
 }
