@@ -32,6 +32,7 @@ export interface Deployment {
   pipelineId: string;
   repositoryId: string;
   buildNumber: string;
+  globalReleaseNumber?: string; // Global release number that encompasses all pipeline builds
   status: 'pending' | 'in_progress' | 'success' | 'failure';
   workflowRunId?: number;
   startedAt: number;
