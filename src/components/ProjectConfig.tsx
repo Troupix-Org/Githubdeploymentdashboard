@@ -240,87 +240,94 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           {repositories.length === 0 ? (
             <div className="text-center py-8" style={{ color: '#6b7280' }}>
               No repositories configured. Click "Add Repository" to get started.
             </div>
           ) : (
-            repositories.map((repo) => (
-              <Card
-                key={repo.id}
-                className="border-[#e5e7eb]"
-                style={{ background: '#f9fafb' }}
-              >
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Repository Name</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {repositories.map((repo) => (
+                <Card
+                  key={repo.id}
+                  className="border-[#e5e7eb]"
+                  style={{ background: '#f9fafb' }}
+                >
+                  <CardContent className="pt-6 space-y-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="truncate" style={{ color: '#1f2937' }}>
+                        {repo.name || 'Unnamed Repository'}
+                      </h3>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleRemoveRepository(repo.id)}
+                        className="hover:bg-[#f3f4f6] h-6 w-6 shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3" style={{ color: '#ef4444' }} />
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs" style={{ color: '#374151' }}>Repository Name</Label>
                         <Input
                           placeholder="Frontend"
                           value={repo.name}
                           onChange={(e) =>
                             handleUpdateRepository(repo.id, 'name', e.target.value)
                           }
-                          className="border-[#d1d5db]"
+                          className="border-[#d1d5db] h-8 text-xs"
                           style={{ background: '#ffffff', color: '#1f2937' }}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Owner</Label>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs" style={{ color: '#374151' }}>Owner</Label>
                         <Input
                           placeholder="username or org"
                           value={repo.owner}
                           onChange={(e) =>
                             handleUpdateRepository(repo.id, 'owner', e.target.value)
                           }
-                          className="border-[#d1d5db]"
+                          className="border-[#d1d5db] h-8 text-xs"
                           style={{ background: '#ffffff', color: '#1f2937' }}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label style={{ color: '#374151' }}>Repository</Label>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs" style={{ color: '#374151' }}>Repository</Label>
                         <Input
                           placeholder="my-repo"
                           value={repo.repo}
                           onChange={(e) =>
                             handleUpdateRepository(repo.id, 'repo', e.target.value)
                           }
-                          className="border-[#d1d5db]"
+                          className="border-[#d1d5db] h-8 text-xs"
                           style={{ background: '#ffffff', color: '#1f2937' }}
                         />
                       </div>
                     </div>
+                    
                     <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleRemoveRepository(repo.id)}
-                      className="hover:bg-[#f3f4f6] mt-7"
+                      onClick={() => handleLoadWorkflows(repo.id)}
+                      disabled={loadingWorkflows[repo.id] || !repo.owner || !repo.repo}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#d1d5db] hover:bg-[#f3f4f6] w-full h-8 text-xs"
+                      style={{ color: '#374151' }}
                     >
-                      <Trash2 className="w-4 h-4" style={{ color: '#ef4444' }} />
+                      {loadingWorkflows[repo.id] ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load Workflows'
+                      )}
                     </Button>
-                  </div>
-                  <Button
-                    onClick={() => handleLoadWorkflows(repo.id)}
-                    disabled={loadingWorkflows[repo.id] || !repo.owner || !repo.repo}
-                    variant="outline"
-                    size="sm"
-                    className="border-[#d1d5db] hover:bg-[#f3f4f6]"
-                    style={{ color: '#374151' }}
-                  >
-                    {loadingWorkflows[repo.id] ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Loading Workflows...
-                      </>
-                    ) : (
-                      'Load Available Workflows'
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -580,92 +580,96 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           </CardHeader>
           <CollapsibleContent>
             <CardContent>
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {project.repositories.map((repo) => {
               const qaInfo = qaReleaseBuilds[repo.id];
               
               return (
-                <div
+                <Card
                   key={repo.id}
-                  className="p-4 rounded-lg border border-[#e5e7eb]"
+                  className="border-[#e5e7eb]"
                   style={{ background: '#f9fafb' }}
                 >
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <FolderGit2 className="w-5 h-5 flex-shrink-0" style={{ color: '#6b7280' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate" style={{ color: '#1f2937' }}>{repo.name}</p>
-                        <p className="text-sm truncate" style={{ color: '#6b7280' }}>
-                          {repo.owner}/{repo.repo}
-                        </p>
-                      </div>
-                    </div>
-                    {qaInfo && !qaInfo.loading && qaInfo.commit && (
-                      <div className="flex items-center gap-2">
-                        {getQAStatusIcon(qaInfo.status, qaInfo.conclusion)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* QA Release Build Info */}
-                  {qaInfo?.loading ? (
-                    <div className="flex items-center gap-2 text-sm px-3 py-2 rounded border border-[#d1d5db]" style={{ background: '#ffffff', color: '#6b7280' }}>
-                      <RefreshCw className="w-3 h-3 animate-spin" />
-                      <span>Loading qarelease build...</span>
-                    </div>
-                  ) : qaInfo?.commit ? (
-                    <div className="space-y-2 px-3 py-2 rounded border border-[#d1d5db]" style={{ background: '#ffffff' }}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <GitBranch className="w-3 h-3" style={{ color: '#6b7280' }} />
-                          <span className="text-sm" style={{ color: '#6b7280' }}>qarelease</span>
-                        </div>
-                        {qaInfo.buildNumber && (
-                          <span className="text-xs" style={{ color: '#6b7280' }}>
-                            {qaInfo.buildNumber}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-start gap-2">
-                        <GitCommit className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#6b7280' }} />
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <p className="text-sm truncate" style={{ color: '#1f2937' }} title={qaInfo.commit.message}>
-                            {qaInfo.commit.message}
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FolderGit2 className="w-4 h-4 flex-shrink-0" style={{ color: '#6b7280' }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate" style={{ color: '#1f2937' }}>{repo.name}</p>
+                          <p className="text-xs truncate" style={{ color: '#6b7280' }}>
+                            {repo.owner}/{repo.repo}
                           </p>
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#e5e7eb', color: '#6b7280' }}>
-                              {qaInfo.commit.sha}
-                            </code>
-                            <span className="text-xs" style={{ color: '#9ca3af' }}>
-                              by {qaInfo.commit.author}
-                            </span>
-                            <span className="text-xs" style={{ color: '#9ca3af' }}>
-                              {formatRelativeDate(qaInfo.commit.date)}
-                            </span>
+                        </div>
+                      </div>
+                      {qaInfo && !qaInfo.loading && qaInfo.commit && (
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {getQAStatusIcon(qaInfo.status, qaInfo.conclusion)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* QA Release Build Info */}
+                    {qaInfo?.loading ? (
+                      <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded border border-[#d1d5db]" style={{ background: '#ffffff', color: '#6b7280' }}>
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        <span>Loading...</span>
+                      </div>
+                    ) : qaInfo?.commit ? (
+                      <div className="space-y-2 px-2 py-2 rounded border border-[#d1d5db]" style={{ background: '#ffffff' }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <GitBranch className="w-3 h-3" style={{ color: '#6b7280' }} />
+                            <span className="text-xs" style={{ color: '#6b7280' }}>qarelease</span>
                           </div>
-                          {qaInfo.url && (
-                            <a
-                              href={qaInfo.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs inline-flex items-center gap-1 hover:underline"
-                              style={{ color: '#2563eb' }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              View workflow run
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                          {qaInfo.buildNumber && (
+                            <span className="text-xs" style={{ color: '#6b7280' }}>
+                              {qaInfo.buildNumber}
+                            </span>
                           )}
                         </div>
+                        
+                        <div className="flex items-start gap-1.5">
+                          <GitCommit className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#6b7280' }} />
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <p className="text-xs truncate" style={{ color: '#1f2937' }} title={qaInfo.commit.message}>
+                              {qaInfo.commit.message}
+                            </p>
+                            <div className="flex flex-col gap-1">
+                              <code className="text-xs px-1.5 py-0.5 rounded truncate" style={{ background: '#e5e7eb', color: '#6b7280' }}>
+                                {qaInfo.commit.sha}
+                              </code>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs truncate" style={{ color: '#9ca3af' }}>
+                                  by {qaInfo.commit.author}
+                                </span>
+                                <span className="text-xs" style={{ color: '#9ca3af' }}>
+                                  {formatRelativeDate(qaInfo.commit.date)}
+                                </span>
+                              </div>
+                            </div>
+                            {qaInfo.url && (
+                              <a
+                                href={qaInfo.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs inline-flex items-center gap-1 hover:underline"
+                                style={{ color: '#2563eb' }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                View workflow
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm px-3 py-2 rounded border border-[#d1d5db]" style={{ background: '#ffffff', color: '#9ca3af' }}>
-                      No qarelease builds found
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <div className="text-xs px-2 py-1.5 rounded border border-[#d1d5db]" style={{ background: '#ffffff', color: '#9ca3af' }}>
+                        No qarelease builds found
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
@@ -790,7 +794,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                               {input.required && <span style={{ color: '#ef4444' }}> *</span>}
                             </Label>
                             {input.type === 'boolean' ? (
-                              <div className="flex items-center space-x-2 h-7">
+                              <div className="flex items-center space-x-2 h-8 px-3 border border-[#d1d5db] rounded-md" style={{ background: '#ffffff' }}>
                                 <Checkbox
                                   id={`input-${pipeline.id}-${input.name}`}
                                   checked={value === true}
@@ -823,7 +827,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                               >
                                 <SelectTrigger
                                   id={`input-${pipeline.id}-${input.name}`}
-                                  className="border-[#d1d5db] h-7 text-xs"
+                                  className="border-[#d1d5db] h-8 text-xs px-3"
                                   style={{ background: '#ffffff', color: '#1f2937' }}
                                 >
                                   <SelectValue placeholder={input.description || `Select ${input.name}`} />
@@ -859,7 +863,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                   }
                                 }}
                                 onKeyDown={(e) => e.key === 'Enter' && handleDeploy(pipeline.id)}
-                                className="border-[#d1d5db] h-7 text-xs"
+                                className="border-[#d1d5db] h-8 text-xs px-3"
                                 style={{ background: '#ffffff', color: '#1f2937' }}
                               />
                             )}
@@ -873,7 +877,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       <Button
                         onClick={() => handleDeploy(pipeline.id)}
                         disabled={loadingPipelines[pipeline.id]}
-                        className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white h-7 text-xs px-3"
+                        className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white h-8 text-xs px-3"
                       >
                         {loadingPipelines[pipeline.id] ? (
                           <>

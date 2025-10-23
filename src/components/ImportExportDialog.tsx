@@ -99,10 +99,10 @@ export function ImportExportDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-2xl border-[#e5e7eb]"
+        className="max-w-2xl max-h-[85vh] border-[#e5e7eb] flex flex-col"
         style={{ background: '#ffffff' }}
       >
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle style={{ color: '#1f2937' }}>
             <FileJson className="w-5 h-5 inline mr-2" />
             Import / Export Project
@@ -112,13 +112,13 @@ export function ImportExportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={project ? 'export' : 'import'} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue={project ? 'export' : 'import'} className="w-full flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
             <TabsTrigger value="export" disabled={!project}>Export</TabsTrigger>
             <TabsTrigger value="import">Import</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="export" className="space-y-4">
+          <TabsContent value="export" className="space-y-4 overflow-y-auto flex-1 mt-4">
             {project ? (
               <>
                 <div className="space-y-2">
@@ -126,8 +126,7 @@ export function ImportExportDialog({
                   <Textarea
                     value={exportProject(project)}
                     readOnly
-                    rows={12}
-                    className="border-[#d1d5db] font-mono text-sm"
+                    className="border-[#d1d5db] font-mono text-sm min-h-[300px] max-h-[400px]"
                     style={{ background: '#f9fafb', color: '#1f2937' }}
                   />
                   <p className="text-xs" style={{ color: '#6b7280' }}>
@@ -136,7 +135,7 @@ export function ImportExportDialog({
                   </p>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-2 border-t border-[#e5e7eb] bg-white sticky bottom-0">
                   <Button
                     onClick={handleCopyToClipboard}
                     className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
@@ -162,7 +161,7 @@ export function ImportExportDialog({
             )}
           </TabsContent>
 
-          <TabsContent value="import" className="space-y-4">
+          <TabsContent value="import" className="space-y-4 overflow-y-auto flex-1 mt-4">
             <div className="space-y-2">
               <Label style={{ color: '#374151' }}>Import from File</Label>
               <div className="flex items-center gap-3">
@@ -211,8 +210,7 @@ export function ImportExportDialog({
                 value={importJson}
                 onChange={(e) => setImportJson(e.target.value)}
                 placeholder='{\n  "version": "1.0",\n  "project": {\n    "name": "My Project",\n    ...\n  }\n}'
-                rows={12}
-                className="border-[#d1d5db] font-mono text-sm"
+                className="border-[#d1d5db] font-mono text-sm min-h-[300px] max-h-[400px]"
                 style={{ background: '#f9fafb', color: '#1f2937' }}
               />
               <p className="text-xs" style={{ color: '#6b7280' }}>
@@ -234,7 +232,7 @@ export function ImportExportDialog({
               </Alert>
             )}
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 pt-2 border-t border-[#e5e7eb] bg-white sticky bottom-0">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}

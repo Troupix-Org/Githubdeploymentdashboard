@@ -197,11 +197,18 @@ export async function importProject(jsonString: string): Promise<Project> {
       oldToNewRepoIds.set(oldRepo.id, newProject.repositories[index].id);
     });
     
-    newProject.pipelines = data.project.pipelines.map((pipeline: any) => ({
-      ...pipeline,
-      id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-      repositoryId: oldToNewRepoIds.get(pipeline.repositoryId) || newProject.repositories[0]?.id || '',
-    }));
+    newProject.pipelines = data.project.pipelines.map((pipeline: any) => {
+      // Validate required pipeline fields
+      if (!pipeline.name || !pipeline.workflowFile || !pipeline.branch) {
+        console.warn('Pipeline missing required fields:', pipeline);
+      }
+      
+      return {
+        ...pipeline,
+        id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        repositoryId: oldToNewRepoIds.get(pipeline.repositoryId) || newProject.repositories[0]?.id || '',
+      };
+    });
     
     // Save the imported project
     await saveProject(newProject);
