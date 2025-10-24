@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Plus, Folder, GitBranch, Trash2, Settings, FileJson, Download, Rocket } from 'lucide-react';
+import { Plus, Folder, GitBranch, Trash2, Settings, FileJson, Download, Rocket, Database, ChevronDown } from 'lucide-react';
 import { Project, getProjects, deleteProject, downloadProjectAsJson } from '../lib/storage';
 import { Separator } from './ui/separator';
 import {
@@ -14,6 +14,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { ImportExportDialog } from './ImportExportDialog';
 import { toast } from 'sonner@2.0.3';
 
@@ -54,10 +61,13 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
     setImportExportDialog({ open: true });
   };
 
-  const handleQuickDownload = (project: Project, e: React.MouseEvent) => {
+  const handleQuickDownload = (project: Project, exportType: 'config' | 'full', e: React.MouseEvent) => {
     e.stopPropagation();
-    downloadProjectAsJson(project);
-    toast.success(`${project.name} configuration downloaded!`);
+    downloadProjectAsJson(project, exportType === 'full');
+    const message = exportType === 'full'
+      ? `${project.name} full backup downloaded!`
+      : `${project.name} configuration downloaded!`;
+    toast.success(message);
   };
 
   // Separate production and other projects
@@ -94,18 +104,64 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
             </CardDescription>
           </div>
           <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={(e) => handleQuickDownload(project, e)}
-              className="h-8 w-8"
-              style={{ 
-                hover: isProduction ? 'bg-blue-100' : 'bg-purple-50' 
-              }}
-              title="Download configuration"
-            >
-              <Download className="w-4 h-4" style={{ color: isProduction ? '#2563eb' : '#7c3aed' }} />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-8 w-8"
+                  style={{ 
+                    hover: isProduction ? 'bg-blue-100' : 'bg-purple-50' 
+                  }}
+                  title="Export project"
+                >
+                  <Download className="w-4 h-4" style={{ color: isProduction ? '#2563eb' : '#7c3aed' }} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem 
+                  onClick={(e) => handleQuickDownload(project, 'config', e)}
+                  className="cursor-pointer"
+                >
+                  <Settings className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
+                  <div>
+                    <div className="font-medium">Configuration Only</div>
+                    <div className="text-xs" style={{ color: '#6b7280' }}>
+                      Export project structure
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => handleQuickDownload(project, 'full', e)}
+                  className="cursor-pointer"
+                >
+                  <Database className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
+                  <div>
+                    <div className="font-medium">Full Backup</div>
+                    <div className="text-xs" style={{ color: '#6b7280' }}>
+                      Include deployments & releases
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleExport(project);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <FileJson className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
+                  <div>
+                    <div className="font-medium">View/Copy JSON</div>
+                    <div className="text-xs" style={{ color: '#6b7280' }}>
+                      Open export dialog
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               size="icon"
               variant="ghost"

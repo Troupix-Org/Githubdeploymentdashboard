@@ -211,17 +211,32 @@ export function deleteDeploymentsByBatch(batchId: string): void {
 }
 
 // Project Import/Export
-export function exportProject(project: Project): string {
-  // Create a clean export without deployments
-  const exportData = {
-    version: '1.0',
+export function exportProject(project: Project, includeFull: boolean = false): string {
+  // Base export data with project configuration
+  const exportData: any = {
+    version: '2.0',
+    exportType: includeFull ? 'full' : 'config',
     project: {
       name: project.name,
       repositories: project.repositories,
       pipelines: project.pipelines,
+      isProductionRelease: project.isProductionRelease,
     },
     exportedAt: new Date().toISOString(),
   };
+  
+  // If full export, include deployments and production releases
+  if (includeFull) {
+    // Get all deployments for this project
+    const deployments = getDeploymentsByProject(project.id);
+    exportData.deployments = deployments;
+    
+    // Get all production releases for this project (if it's a production release project)
+    if (project.isProductionRelease) {
+      const productionReleases = getProductionReleasesByProject(project.id);
+      exportData.productionReleases = productionReleases;
+    }
+  }
   
   return JSON.stringify(exportData, null, 2);
 }
@@ -244,8 +259,9 @@ export async function importProject(jsonString: string): Promise<Project> {
     }
     
     // Generate new IDs for the imported project
+    const newProjectId = Date.now().toString();
     const newProject: Project = {
-      id: Date.now().toString(),
+      id: newProjectId,
       name: data.project.name,
       repositories: data.project.repositories.map((repo: any) => ({
         ...repo,
@@ -253,6 +269,7 @@ export async function importProject(jsonString: string): Promise<Project> {
       })),
       pipelines: [],
       createdAt: Date.now(),
+      isProductionRelease: data.project.isProductionRelease || false,
     };
     
     // Update pipeline repository IDs to match new repository IDs
@@ -261,21 +278,72 @@ export async function importProject(jsonString: string): Promise<Project> {
       oldToNewRepoIds.set(oldRepo.id, newProject.repositories[index].id);
     });
     
+    // Map old pipeline IDs to new ones
+    const oldToNewPipelineIds = new Map<string, string>();
+    
     newProject.pipelines = data.project.pipelines.map((pipeline: any) => {
       // Validate required pipeline fields
       if (!pipeline.name || !pipeline.workflowFile || !pipeline.branch) {
         console.warn('Pipeline missing required fields:', pipeline);
       }
       
+      const newPipelineId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      oldToNewPipelineIds.set(pipeline.id, newPipelineId);
+      
       return {
         ...pipeline,
-        id: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+        id: newPipelineId,
         repositoryId: oldToNewRepoIds.get(pipeline.repositoryId) || newProject.repositories[0]?.id || '',
       };
     });
     
     // Save the imported project
     await saveProject(newProject);
+    
+    // If this is a full export, restore deployments and production releases
+    if (data.exportType === 'full') {
+      // Import deployments
+      if (Array.isArray(data.deployments)) {
+        const oldToNewDeploymentIds = new Map<string, string>();
+        
+        data.deployments.forEach((deployment: Deployment) => {
+          const newDeploymentId = `deployment_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          oldToNewDeploymentIds.set(deployment.id, newDeploymentId);
+          
+          const newDeployment: Deployment = {
+            ...deployment,
+            id: newDeploymentId,
+            projectId: newProjectId,
+            pipelineId: oldToNewPipelineIds.get(deployment.pipelineId) || deployment.pipelineId,
+            repositoryId: oldToNewRepoIds.get(deployment.repositoryId) || deployment.repositoryId,
+          };
+          
+          saveDeployment(newDeployment);
+        });
+        
+        // Import production releases if present
+        if (newProject.isProductionRelease && Array.isArray(data.productionReleases)) {
+          data.productionReleases.forEach((release: ProductionRelease) => {
+            const newRelease: ProductionRelease = {
+              ...release,
+              id: `prod_release_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+              projectId: newProjectId,
+              deploymentIds: release.deploymentIds.map(oldId => 
+                oldToNewDeploymentIds.get(oldId) || oldId
+              ),
+              stagingDeploymentIds: release.stagingDeploymentIds?.map(oldId => 
+                oldToNewDeploymentIds.get(oldId) || oldId
+              ),
+              productionDeploymentIds: release.productionDeploymentIds?.map(oldId => 
+                oldToNewDeploymentIds.get(oldId) || oldId
+              ),
+            };
+            
+            saveProductionRelease(newRelease);
+          });
+        }
+      }
+    }
     
     return newProject;
   } catch (err) {
@@ -286,13 +354,14 @@ export async function importProject(jsonString: string): Promise<Project> {
   }
 }
 
-export function downloadProjectAsJson(project: Project): void {
-  const jsonString = exportProject(project);
+export function downloadProjectAsJson(project: Project, includeFull: boolean = false): void {
+  const jsonString = exportProject(project, includeFull);
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_config.json`;
+  const suffix = includeFull ? '_full_backup' : '_config';
+  link.download = `${project.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}${suffix}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

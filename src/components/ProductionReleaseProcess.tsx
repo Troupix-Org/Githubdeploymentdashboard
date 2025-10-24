@@ -168,6 +168,7 @@ export function ProductionReleaseProcess({
     if (currentRelease) {
       loadReleaseData(currentRelease);
     }
+    updateSteps();
   }, [currentRelease]);
 
   const loadReleaseData = (release: ProductionRelease) => {
@@ -564,9 +565,9 @@ Deployment Team`
         staging: stagingEmailRecipients,
         production: prodEmailRecipients,
       });
+      updateSteps();
     }
     setStagingEmailDialog(false);
-    updateSteps();
   };
 
   const handleQASignOff = () => {
@@ -578,9 +579,9 @@ Deployment Team`
       updateCurrentRelease({ qaSignOff });
     } else {
       saveToStorage('qa_signoff', qaSignOff);
+      updateSteps();
     }
     setQaSignOffDialog(false);
-    updateSteps();
   };
 
   const handleComplianceFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -637,9 +638,9 @@ Deployment Team`
         staging: stagingEmailRecipients,
         production: prodEmailRecipients,
       });
+      updateSteps();
     }
     setProdEmailDialog(false);
-    updateSteps();
   };
 
   const handlePOSignOff = () => {
@@ -651,9 +652,9 @@ Deployment Team`
       updateCurrentRelease({ poSignOff });
     } else {
       saveToStorage('po_signoff', poSignOff);
+      updateSteps();
     }
     setPoSignOffDialog(false);
-    updateSteps();
   };
 
   const handleProdCompleteEmailSent = () => {
@@ -661,9 +662,9 @@ Deployment Team`
       updateReleaseStep(7, 'completed', { emailSent: true });
     } else {
       saveToStorage('prod_complete_email_sent', true);
+      updateSteps();
     }
     setProdCompleteEmailDialog(false);
-    updateSteps();
   };
 
   const handleStepAction = (stepId: number) => {
@@ -919,8 +920,8 @@ Deployment Team`
                                 } else if (step.id === 7) {
                                   localStorage.removeItem(`${STORAGE_PREFIX}prod_complete_email_sent`);
                                 }
+                                updateSteps();
                               }
-                              updateSteps();
                             }
                           }}
                           className="text-xs mt-2"
@@ -955,8 +956,8 @@ Deployment Team`
                                   updateReleaseStep(step.id, 'completed');
                                 } else {
                                   saveToStorage(`step_${step.id}_completed`, true);
+                                  updateSteps();
                                 }
-                                updateSteps();
                               }}
                               className="text-xs"
                               style={{ borderColor: '#10b981', color: '#10b981' }}
