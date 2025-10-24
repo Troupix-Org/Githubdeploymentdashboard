@@ -339,7 +339,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
             <div>
               <CardTitle style={{ color: '#6b21a8' }}>Pipelines</CardTitle>
               <CardDescription style={{ color: '#7c3aed' }}>
-                Configure deployment pipelines for this project
+                Configure deployment pipelines. Add environment name (qa, staging, prod) to identify runs correctly.
               </CardDescription>
             </div>
             <Button
@@ -368,7 +368,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
               >
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div className="space-y-2">
                         <Label className="font-medium" style={{ color: '#6b21a8' }}>Repository</Label>
                         <Select
@@ -452,6 +452,21 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
                           value={pipeline.branch}
                           onChange={(e) =>
                             handleUpdatePipeline(pipeline.id, 'branch', e.target.value)
+                          }
+                          className="border"
+                          style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="font-medium" style={{ color: '#6b21a8' }}>
+                          Environment
+                          <span className="text-xs font-normal ml-1" style={{ color: '#9ca3af' }}>(optional)</span>
+                        </Label>
+                        <Input
+                          placeholder="qa, staging, prod..."
+                          value={pipeline.environment || ''}
+                          onChange={(e) =>
+                            handleUpdatePipeline(pipeline.id, 'environment', e.target.value)
                           }
                           className="border"
                           style={{ background: '#ffffff', color: '#1f2937', borderColor: '#ddd6fe' }}

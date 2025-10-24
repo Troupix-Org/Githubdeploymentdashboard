@@ -6,14 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   ArrowLeft,
   Rocket,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Clock,
-  XCircle,
   ExternalLink,
   GitBranch,
   FolderGit2,
@@ -21,9 +20,14 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
+  Activity,
+  Clock,
+  XCircle,
+  Loader2,
+  Info,
 } from 'lucide-react';
-import { Project, Deployment, getDeploymentsByProject, saveDeployment, Repository, saveProject } from '../lib/storage';
-import { triggerWorkflow, getWorkflowRuns, getLatestBuildForBranch, getLatestBuildsForBranch, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun } from '../lib/github';
+import { Project, Deployment, saveDeployment, Repository, saveProject, getDeploymentsByProject } from '../lib/storage';
+import { triggerWorkflow, getLatestBuildsForBranch, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, getWorkflowRun } from '../lib/github';
 import {
   Dialog,
   DialogContent,
@@ -75,13 +79,10 @@ interface LatestBuildInfo {
 
 export function DeploymentDashboard({ project: initialProject, onBack }: DeploymentDashboardProps) {
   const [project, setProject] = useState<Project>(initialProject);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState(project.pipelines[0]?.id || '');
   const [buildNumbers, setBuildNumbers] = useState<{ [pipelineId: string]: string }>({});
   const [loadingPipelines, setLoadingPipelines] = useState<{ [pipelineId: string]: boolean }>({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [showReleaseDialog, setShowReleaseDialog] = useState(false);
   const [selectedRepoForRelease, setSelectedRepoForRelease] = useState(project.repositories[0]?.id || '');
   const [latestBuilds, setLatestBuilds] = useState<{ [pipelineId: string]: LatestBuildInfo }>({});
@@ -102,7 +103,11 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   // Collapsible sections states
   const [repositoriesOpen, setRepositoriesOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [deploymentStatusOpen, setDeploymentStatusOpen] = useState(true);
+
+  // Deployment Status states
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Sync with prop changes
   useEffect(() => {
@@ -118,41 +123,60 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     setRefreshing(true);
     
     try {
-      const pipeline = project.pipelines.find(p => p.id === selectedPipeline);
-      if (!pipeline) return;
+      const updatedDeployments = [...deployments];
+      let hasUpdates = false;
 
-      const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
-      if (!repository) return;
-
-      const runs = await getWorkflowRuns(repository.owner, repository.repo, pipeline.workflowFile, 20);
-      
-      // Update deployments with latest status
-      const updatedDeployments = deployments.map(deployment => {
-        if (deployment.pipelineId !== selectedPipeline) return deployment;
+      for (let i = 0; i < updatedDeployments.length; i++) {
+        const deployment = updatedDeployments[i];
         
-        const matchingRun = runs.find(run => run.id === deployment.workflowRunId);
-        if (!matchingRun) return deployment;
-
-        let status: Deployment['status'] = 'pending';
-        if (matchingRun.status === 'completed') {
-          status = matchingRun.conclusion === 'success' ? 'success' : 'failure';
-        } else if (matchingRun.status === 'in_progress') {
-          status = 'in_progress';
+        // Skip if already completed
+        if (deployment.status === 'success' || deployment.status === 'failure') {
+          continue;
         }
 
-        const updated = {
-          ...deployment,
-          status,
-          completedAt: matchingRun.status === 'completed' ? new Date(matchingRun.updated_at).getTime() : undefined,
-        };
+        // Skip if no workflow run ID
+        if (!deployment.workflowRunId) {
+          continue;
+        }
 
-        saveDeployment(updated);
-        return updated;
-      });
+        // Find the repository for this deployment
+        const pipeline = project.pipelines.find(p => p.id === deployment.pipelineId);
+        if (!pipeline) continue;
 
-      setDeployments(updatedDeployments);
+        const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+        if (!repository) continue;
+
+        try {
+          const run = await getWorkflowRun(repository.owner, repository.repo, deployment.workflowRunId);
+          
+          let status: Deployment['status'] = 'pending';
+          if (run.status === 'completed') {
+            status = run.conclusion === 'success' ? 'success' : 'failure';
+          } else if (run.status === 'in_progress') {
+            status = 'in_progress';
+          } else if (run.status === 'queued') {
+            status = 'pending';
+          }
+
+          if (status !== deployment.status) {
+            hasUpdates = true;
+            updatedDeployments[i] = {
+              ...deployment,
+              status,
+              completedAt: run.status === 'completed' ? new Date(run.updated_at).getTime() : undefined,
+            };
+            saveDeployment(updatedDeployments[i]);
+          }
+        } catch (err) {
+          console.error(`Failed to refresh status for deployment ${deployment.id}:`, err);
+        }
+      }
+
+      if (hasUpdates) {
+        setDeployments(updatedDeployments);
+      }
     } catch (err) {
-      console.error('Failed to refresh status:', err);
+      console.error('Failed to refresh deployment status:', err);
     } finally {
       setRefreshing(false);
     }
@@ -257,14 +281,14 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     loadDeployments();
     loadLatestBuilds();
     loadWorkflowInputs();
-    
-    // Auto-refresh every 10 seconds
+
+    // Auto-refresh deployment status every 10 seconds
     const interval = setInterval(() => {
       refreshDeploymentStatus();
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [project.id, selectedPipeline]);
+  }, [project.id]);
 
   const handleSaveDefaultValue = async (pipelineId: string, inputName: string, value: any) => {
     const pipelineIndex = project.pipelines.findIndex(p => p.id === pipelineId);
@@ -323,6 +347,9 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     setError('');
     setSuccess('');
 
+    // Generate a unique batch ID for this deployment session
+    const batchId = `batch-${Date.now()}`;
+
     try {
       // Prepare workflow inputs from inputValues
       const workflowParams: Record<string, string> = {};
@@ -348,13 +375,16 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
         workflowParams
       );
 
-      // Find the triggered workflow run
+      setSuccess(`Workflow triggered for ${pipeline.name}. Locating workflow run...`);
+
+      // Find the triggered workflow run (includes initial 3s delay)
       const workflowRunId = await findTriggeredWorkflowRun(
         repository.owner,
         repository.repo,
         pipeline.workflowFile,
         buildNumber,
-        pipeline.branch
+        pipeline.branch,
+        pipeline.environment
       );
       
       const deployment: Deployment = {
@@ -363,7 +393,10 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
         pipelineId: pipeline.id,
         repositoryId: repository.id,
         buildNumber,
+        branch: pipeline.branch,
+        environment: pipeline.environment,
         globalReleaseNumber: globalReleaseNumber || undefined,
+        batchId,
         status: 'pending',
         workflowRunId: workflowRunId || undefined,
         startedAt: Date.now(),
@@ -374,9 +407,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
       
       setSuccess(`Deployment triggered successfully for ${pipeline.name}`);
       setBuildNumbers(prev => ({ ...prev, [pipelineId]: '' }));
-      
-      // Refresh status after a few seconds
-      setTimeout(refreshDeploymentStatus, 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to trigger deployment');
     } finally {
@@ -395,6 +425,9 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     setIsDeploying(true);
     setError('');
     setSuccess('');
+
+    // Generate a unique batch ID for this group deployment
+    const batchId = `batch-${Date.now()}`;
 
     const pipelinesToDeploy = project.pipelines.filter(p => selectedPipelines.includes(p.id));
     setDeployProgress({ current: 0, total: pipelinesToDeploy.length });
@@ -454,7 +487,8 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           repository.repo,
           pipeline.workflowFile,
           buildNumber,
-          pipeline.branch
+          pipeline.branch,
+          pipeline.environment
         );
         
         const deployment: Deployment = {
@@ -463,7 +497,10 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           pipelineId: pipeline.id,
           repositoryId: repository.id,
           buildNumber,
+          branch: pipeline.branch,
+          environment: pipeline.environment,
           globalReleaseNumber: globalReleaseNumber || undefined,
+          batchId,
           status: 'pending',
           workflowRunId: workflowRunId || undefined,
           startedAt: Date.now(),
@@ -495,9 +532,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
         setError(results.errors.join('; '));
       }
     }
-
-    // Refresh status after a few seconds
-    setTimeout(refreshDeploymentStatus, 3000);
   };
 
   const togglePipelineSelection = (pipelineId: string) => {
@@ -516,38 +550,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     }
   };
 
-  const getStatusIcon = (status: Deployment['status']) => {
-    switch (status) {
-      case 'success':
-        return <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />;
-      case 'failure':
-        return <XCircle className="w-4 h-4" style={{ color: '#ef4444' }} />;
-      case 'in_progress':
-        return <RefreshCw className="w-4 h-4 animate-spin" style={{ color: '#2563eb' }} />;
-      default:
-        return <Clock className="w-4 h-4" style={{ color: '#6b7280' }} />;
-    }
-  };
-
-  const getStatusBadge = (status: Deployment['status']) => {
-    const styles = {
-      success: { background: '#d1fae5', color: '#065f46', border: '1px solid #10b981' },
-      failure: { background: '#fee2e2', color: '#991b1b', border: '1px solid #ef4444' },
-      in_progress: { background: '#dbeafe', color: '#1e40af', border: '1px solid #2563eb' },
-      pending: { background: '#f3f4f6', color: '#374151', border: '1px solid #9ca3af' },
-    };
-
-    return (
-      <Badge variant="outline" style={styles[status]}>
-        {status.replace('_', ' ')}
-      </Badge>
-    );
-  };
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
   const formatRelativeDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -563,28 +565,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     return date.toLocaleDateString();
   };
 
-  // Group deployments by global release number and time proximity
-  const groupDeployments = (deployments: Deployment[]) => {
-    const groups: { [key: string]: Deployment[] } = {};
-    
-    deployments.forEach(deployment => {
-      if (deployment.globalReleaseNumber) {
-        // Group by global release number
-        const key = `release-${deployment.globalReleaseNumber}`;
-        if (!groups[key]) {
-          groups[key] = [];
-        }
-        groups[key].push(deployment);
-      } else {
-        // Individual deployments without global release number
-        const key = `individual-${deployment.id}`;
-        groups[key] = [deployment];
-      }
-    });
-    
-    return groups;
-  };
-
   const getQAStatusIcon = (status?: string, conclusion?: string | null) => {
     if (status === 'completed' && conclusion === 'success') {
       return <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />;
@@ -597,6 +577,71 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     }
     return null;
   };
+
+  const getStatusIcon = (status: Deployment['status']) => {
+    switch (status) {
+      case 'success':
+        return <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />;
+      case 'failure':
+        return <XCircle className="w-4 h-4" style={{ color: '#ef4444' }} />;
+      case 'in_progress':
+        return <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#2563eb' }} />;
+      default:
+        return <Clock className="w-4 h-4" style={{ color: '#9ca3af' }} />;
+    }
+  };
+
+  const getStatusBadge = (status: Deployment['status']) => {
+    const styles = {
+      success: { background: '#d1fae5', color: '#065f46', border: '1px solid #10b981' },
+      failure: { background: '#fee2e2', color: '#991b1b', border: '1px solid #ef4444' },
+      in_progress: { background: '#dbeafe', color: '#1e40af', border: '1px solid #2563eb' },
+      pending: { background: '#f3f4f6', color: '#374151', border: '1px solid #9ca3af' },
+    };
+
+    return (
+      <Badge variant="outline" style={styles[status]} className="text-xs">
+        {status.replace('_', ' ')}
+      </Badge>
+    );
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const getEnvironmentBadgeStyle = (environment?: string) => {
+    if (!environment) return { background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' };
+    
+    const envLower = environment.toLowerCase();
+    if (envLower.includes('prod')) {
+      return { background: '#fee2e2', color: '#991b1b', border: '1px solid #ef4444' };
+    } else if (envLower.includes('staging') || envLower.includes('stg')) {
+      return { background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' };
+    } else if (envLower.includes('qa') || envLower.includes('test')) {
+      return { background: '#dbeafe', color: '#1e40af', border: '1px solid #3b82f6' };
+    } else if (envLower.includes('dev')) {
+      return { background: '#d1fae5', color: '#065f46', border: '1px solid #10b981' };
+    }
+    return { background: '#f3e8ff', color: '#6b21a8', border: '1px solid #c4b5fd' };
+  };
+
+  // Group deployments by batchId
+  const groupedDeployments = deployments.reduce((groups, deployment) => {
+    const batchId = deployment.batchId || 'unknown';
+    if (!groups[batchId]) {
+      groups[batchId] = [];
+    }
+    groups[batchId].push(deployment);
+    return groups;
+  }, {} as Record<string, Deployment[]>);
+
+  // Sort batch groups by most recent first
+  const sortedBatchIds = Object.keys(groupedDeployments).sort((a, b) => {
+    const aTime = Math.min(...groupedDeployments[a].map(d => d.startedAt));
+    const bTime = Math.min(...groupedDeployments[b].map(d => d.startedAt));
+    return bTime - aTime;
+  });
 
   return (
     <div className="space-y-6">
@@ -1166,13 +1211,24 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
               <AlertDescription style={{ color: '#059669' }}>{success}</AlertDescription>
             </Alert>
           )}
+          
+          {!error && !success && (
+            <Alert className="border-[#7c3aed] bg-[#faf5ff]">
+              <Info className="h-4 w-4" style={{ color: '#7c3aed' }} />
+              <AlertDescription style={{ color: '#6b21a8' }}>
+                <span className="text-xs">
+                  After triggering deployments, the system waits 3 seconds before identifying workflow runs. Each deployment session is grouped separately in the status section below.
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
 
-      {/* Deployment History */}
-      <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+      {/* Deployment Status */}
+      <Collapsible open={deploymentStatusOpen} onOpenChange={setDeploymentStatusOpen}>
         <Card className="border-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -1180,9 +1236,9 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                 <Button variant="ghost" className="p-0 h-auto hover:bg-transparent">
                   <div className="text-left">
                     <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5" style={{ color: '#7c3aed' }} />
-                      <CardTitle style={{ color: '#6b21a8' }}>Deployment History</CardTitle>
-                      {historyOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
+                      <Activity className="w-5 h-5" style={{ color: '#7c3aed' }} />
+                      <CardTitle style={{ color: '#6b21a8' }}>Deployment Status</CardTitle>
+                      {deploymentStatusOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
                       {deployments.length > 0 && (
                         <Badge 
                           variant="outline" 
@@ -1198,186 +1254,188 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                       )}
                     </div>
                     <CardDescription style={{ color: '#7c3aed' }}>
-                      Last 5 deployments {deployments.length > 5 && `(${deployments.length} total)`}
+                      Deployments grouped by session - each trigger creates a new batch
                     </CardDescription>
                   </div>
                 </Button>
               </CollapsibleTrigger>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={refreshDeploymentStatus}
-              disabled={refreshing}
-              className="border-2 hover:bg-purple-50"
-              style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={refreshDeploymentStatus}
+                disabled={refreshing}
+                className="border-2 hover:bg-purple-50"
+                style={{ borderColor: '#c4b5fd', color: '#7c3aed' }}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
             </div>
           </CardHeader>
           <CollapsibleContent>
             <CardContent>
-          {deployments.length === 0 ? (
-            <div className="text-center py-8" style={{ color: '#7c3aed' }}>
-              No deployments yet. Start your first deployment above.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {(() => {
-                // Show only the last 5 deployments
-                const recentDeployments = deployments.slice(0, 5);
-                const groups = groupDeployments(recentDeployments);
-                return Object.entries(groups).map(([groupKey, groupDeployments]) => {
-                  const isGrouped = groupKey.startsWith('release-');
-                  const globalRelease = isGrouped ? groupKey.replace('release-', '') : null;
-                  
-                  if (isGrouped) {
-                    // Grouped deployments with global release number
+              {deployments.length === 0 ? (
+                <div className="text-center py-12" style={{ color: '#9ca3af' }}>
+                  <Activity className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No deployments yet</p>
+                  <p className="text-sm mt-1">Deploy a pipeline to see the status here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {sortedBatchIds.map((batchId, batchIndex) => {
+                    const batch = groupedDeployments[batchId];
+                    const batchStartTime = Math.min(...batch.map(d => d.startedAt));
+                    const batchHasGlobalRelease = batch.some(d => d.globalReleaseNumber);
+                    const globalReleaseNumber = batch.find(d => d.globalReleaseNumber)?.globalReleaseNumber;
+
                     return (
-                      <div key={groupKey} className="space-y-2">
-                        {/* Global Release Header */}
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border-2" style={{ background: 'linear-gradient(135deg, #ede9fe 0%, #fae8ff 100%)', borderColor: '#c4b5fd' }}>
-                          <Badge className="text-sm" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', color: '#ffffff', boxShadow: '0 2px 4px rgba(124, 58, 237, 0.2)' }}>
-                            Release {globalRelease}
-                          </Badge>
-                          <span className="text-xs font-semibold" style={{ color: '#6b21a8' }}>
-                            {groupDeployments.length} deployment{groupDeployments.length > 1 ? 's' : ''}
-                          </span>
-                        </div>
-                        
-                        {/* Deployments in this release */}
-                        <div className="space-y-2 pl-4">
-                          {groupDeployments.map((deployment) => {
-                            const pipeline = project.pipelines.find(p => p.id === deployment.pipelineId);
-                            const repo = project.repositories.find(r => r.id === deployment.repositoryId);
-                            return (
-                              <Card
-                                key={deployment.id}
-                                className="border-2"
-                                style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#ddd6fe' }}
-                              >
-                                <CardContent className="pt-4 pb-4">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3 flex-1">
-                                      {getStatusIcon(deployment.status)}
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="text-sm font-semibold" style={{ color: '#6b21a8' }}>
-                                            Build {deployment.buildNumber}
-                                          </span>
-                                          {getStatusBadge(deployment.status)}
-                                          {pipeline && (
-                                            <Badge variant="outline" className="border text-xs" style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}>
-                                              {pipeline.name}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <p className="text-xs mt-1" style={{ color: '#7c3aed' }}>
-                                          {formatDate(deployment.startedAt)}
-                                          {deployment.completedAt && ` • Completed`}
-                                          {deployment.workflowRunId && ` • Run #${deployment.workflowRunId}`}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    {deployment.workflowRunId && repo && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          window.open(
-                                            `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${deployment.workflowRunId}`,
-                                            '_blank'
-                                          );
-                                        }}
-                                        className="hover:bg-purple-50"
-                                        title={`View workflow run #${deployment.workflowRunId} on GitHub`}
-                                      >
-                                        <ExternalLink className="w-3 h-3" style={{ color: '#7c3aed' }} />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    // Individual deployment without global release
-                    const deployment = groupDeployments[0];
-                    const pipeline = project.pipelines.find(p => p.id === deployment.pipelineId);
-                    const repo = project.repositories.find(r => r.id === deployment.repositoryId);
-                    return (
-                      <Card
-                        key={deployment.id}
-                        className="border-2"
-                        style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#ddd6fe' }}
-                      >
-                        <CardContent className="pt-6">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4 flex-1">
-                              {getStatusIcon(deployment.status)}
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <span className="font-semibold" style={{ color: '#6b21a8' }}>Release {deployment.buildNumber}</span>
-                                  {getStatusBadge(deployment.status)}
-                                  {pipeline && (
-                                    <Badge variant="outline" className="border text-xs" style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}>
-                                      {pipeline.name}
-                                    </Badge>
-                                  )}
-                                  {repo && (
-                                    <span className="text-sm" style={{ color: '#7c3aed' }}>
-                                      {repo.name}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm mt-1" style={{ color: '#7c3aed' }}>
-                                  Started {formatDate(deployment.startedAt)}
-                                  {deployment.completedAt && ` • Completed ${formatDate(deployment.completedAt)}`}
-                                  {deployment.workflowRunId && ` • Run #${deployment.workflowRunId}`}
-                                </p>
-                              </div>
+                      <div key={batchId} className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
+                        {/* Batch Header */}
+                        <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
+                          <div className="flex items-center gap-3">
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs font-mono" 
+                              style={{ 
+                                background: '#6b21a8', 
+                                color: '#ffffff', 
+                                border: 'none' 
+                              }}
+                            >
+                              #{sortedBatchIds.length - batchIndex}
+                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4" style={{ color: '#7c3aed' }} />
+                              <span className="text-sm font-semibold" style={{ color: '#6b21a8' }}>
+                                {formatDate(batchStartTime)}
+                              </span>
                             </div>
-                            {deployment.workflowRunId && repo && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  window.open(
-                                    `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${deployment.workflowRunId}`,
-                                    '_blank'
-                                  );
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs" 
+                              style={{ 
+                                background: '#ffffff', 
+                                color: '#7c3aed', 
+                                border: '1px solid #c4b5fd' 
+                              }}
+                            >
+                              {batch.length} pipeline{batch.length !== 1 ? 's' : ''}
+                            </Badge>
+                            {batchHasGlobalRelease && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs flex items-center gap-1" 
+                                style={{ 
+                                  background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', 
+                                  color: '#92400e', 
+                                  border: '1px solid #f59e0b' 
                                 }}
-                                className="hover:bg-purple-50"
-                                title={`View workflow run #${deployment.workflowRunId} on GitHub`}
                               >
-                                <ExternalLink className="w-4 h-4" style={{ color: '#7c3aed' }} />
-                              </Button>
+                                <Star className="w-3 h-3" />
+                                Release {globalReleaseNumber}
+                              </Badge>
                             )}
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+
+                        {/* Batch Deployments Table */}
+                        <Table>
+                          <TableHeader>
+                            <TableRow style={{ background: '#fafafa', borderColor: '#f3e8ff' }}>
+                              <TableHead className="font-semibold text-xs" style={{ color: '#6b21a8' }}>Status</TableHead>
+                              <TableHead className="font-semibold text-xs" style={{ color: '#6b21a8' }}>Pipeline</TableHead>
+                              <TableHead className="font-semibold text-xs" style={{ color: '#6b21a8' }}>Environment</TableHead>
+                              <TableHead className="font-semibold text-xs" style={{ color: '#6b21a8' }}>Build</TableHead>
+                              <TableHead className="font-semibold text-xs" style={{ color: '#6b21a8' }}>Repository</TableHead>
+                              <TableHead className="font-semibold text-xs text-right" style={{ color: '#6b21a8' }}>Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {batch.map((deployment) => {
+                        const pipeline = project.pipelines.find(p => p.id === deployment.pipelineId);
+                        const repo = project.repositories.find(r => r.id === deployment.repositoryId);
+                        
+                        return (
+                          <TableRow 
+                            key={deployment.id}
+                            className="hover:bg-purple-50/30"
+                            style={{ borderColor: '#f3e8ff' }}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(deployment.status)}
+                                {getStatusBadge(deployment.status)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs" 
+                                  style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}
+                                >
+                                  {pipeline?.name || 'Unknown'}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {deployment.environment || pipeline?.environment ? (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs font-mono" 
+                                  style={getEnvironmentBadgeStyle(deployment.environment || pipeline?.environment)}
+                                >
+                                  {deployment.environment || pipeline?.environment}
+                                </Badge>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <GitBranch className="w-3 h-3" style={{ color: '#9ca3af' }} />
+                                  <span className="text-xs font-mono" style={{ color: '#9ca3af' }}>
+                                    {deployment.branch}
+                                  </span>
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-mono text-sm" style={{ color: '#6b21a8' }}>
+                                {deployment.buildNumber}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-sm" style={{ color: '#7c3aed' }}>
+                                {repo?.name || 'Unknown'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {deployment.workflowRunId && repo ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    window.open(
+                                      `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${deployment.workflowRunId}`,
+                                      '_blank'
+                                    );
+                                  }}
+                                  className="hover:bg-purple-100"
+                                  title="View on GitHub"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" style={{ color: '#7c3aed' }} />
+                                </Button>
+                              ) : (
+                                <span className="text-xs" style={{ color: '#9ca3af' }}>-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
                     );
-                  }
-                });
-              })()}
-              {deployments.length > 5 && (
-                <div className="mt-4 pt-4 border-t" style={{ borderColor: '#e9d5ff' }}>
-                  <div className="text-center">
-                    <p className="text-sm" style={{ color: '#7c3aed' }}>
-                      Showing 5 most recent deployments
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
-                      {deployments.length - 5} older deployment{deployments.length - 5 > 1 ? 's' : ''} not shown
-                    </p>
-                  </div>
+                  })}
                 </div>
               )}
-            </div>
-          )}
             </CardContent>
           </CollapsibleContent>
         </Card>

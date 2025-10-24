@@ -8,6 +8,7 @@ export interface Pipeline {
   name: string;
   workflowFile: string;
   branch: string;
+  environment?: string; // Environment name (qa, staging, prod, etc.) - optional for backward compatibility
   repositoryId: string;
   defaultInputValues?: Record<string, any>; // Default values for workflow inputs
 }
@@ -33,7 +34,10 @@ export interface Deployment {
   pipelineId: string;
   repositoryId: string;
   buildNumber: string;
+  branch: string; // The branch where this was triggered (develop, main, etc.)
+  environment?: string; // The environment where this was deployed (qa, staging, prod, etc.)
   globalReleaseNumber?: string; // Global release number that encompasses all pipeline builds
+  batchId?: string; // Groups deployments triggered together in the same session
   status: 'pending' | 'in_progress' | 'success' | 'failure';
   workflowRunId?: number;
   startedAt: number;

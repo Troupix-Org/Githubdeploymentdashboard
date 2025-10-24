@@ -137,9 +137,19 @@ export async function findTriggeredWorkflowRun(
   workflowFile: string,
   buildNumber: string,
   branch: string,
-  maxRetries: number = 5,
-  delayMs: number = 2000,
+  environment?: string,
+  maxRetries: number = 3,
+  delayMs: number = 3000,
 ): Promise<number | null> {
+  const searchKey = environment 
+    ? `Finding workflow run for build ${buildNumber} in environment ${environment} on branch ${branch}`
+    : `Finding workflow run for build ${buildNumber} on branch ${branch}`;
+  console.log(searchKey);
+  
+  // Initial delay to let GitHub register the workflow run
+  console.log('Waiting 3 seconds for GitHub to register the workflow run...');
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
   // Try multiple times to find the run, as it may take a moment for GitHub to create it
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     if (attempt > 0) {
@@ -151,43 +161,82 @@ export async function findTriggeredWorkflowRun(
       const runs = await getWorkflowRuns(owner, repo, workflowFile, 20, branch);
       
       if (runs.length === 0) {
+        console.log(`Attempt ${attempt + 1}: No runs found on branch ${branch}`);
         continue;
       }
 
-      // Strategy 1: Try to find a run with the build number in its name
-      const runWithBuildNumber = runs.find(run => 
-        run.name && run.name.includes(buildNumber)
-      );
-      if (runWithBuildNumber) {
-        return runWithBuildNumber.id;
-      }
+      console.log(`Attempt ${attempt + 1}: Found ${runs.length} runs on branch ${branch}`);
 
-      // Strategy 2: Find the most recent run that is queued or in_progress
-      // (created within the last 30 seconds to avoid picking up old runs)
+      // Filter runs created recently (within the last 60 seconds since the trigger)
       const now = new Date().getTime();
       const recentRuns = runs.filter(run => {
         const createdAt = new Date(run.created_at).getTime();
         const ageSeconds = (now - createdAt) / 1000;
-        return ageSeconds < 30 && (run.status === 'queued' || run.status === 'in_progress');
+        return ageSeconds < 60; // Extended to 60 seconds to account for initial delay
       });
 
-      if (recentRuns.length > 0) {
-        // Return the most recently created one
-        const sortedByDate = recentRuns.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        return sortedByDate[0].id;
+      if (recentRuns.length === 0) {
+        console.log(`Attempt ${attempt + 1}: No recent runs found (< 60 seconds old)`);
+        continue;
       }
 
-      // Strategy 3: If this is our last attempt, take the most recent run
-      if (attempt === maxRetries - 1 && runs.length > 0) {
-        return runs[0].id;
+      console.log(`Attempt ${attempt + 1}: Found ${recentRuns.length} recent runs`);
+
+      // If environment is specified, filter by environment in run name
+      let candidateRuns = recentRuns;
+      if (environment) {
+        const envFilteredRuns = recentRuns.filter(run => {
+          if (!run.name) return false;
+          const nameLower = run.name.toLowerCase();
+          const envLower = environment.toLowerCase();
+          // Check if both build number and environment are in the run name
+          return nameLower.includes(buildNumber.toLowerCase()) && nameLower.includes(envLower);
+        });
+        
+        if (envFilteredRuns.length > 0) {
+          candidateRuns = envFilteredRuns;
+          console.log(`Found ${envFilteredRuns.length} run(s) matching build number + environment`);
+        } else {
+          // If no exact match, try just environment
+          const envOnlyRuns = recentRuns.filter(run => 
+            run.name && run.name.toLowerCase().includes(environment.toLowerCase())
+          );
+          if (envOnlyRuns.length > 0) {
+            candidateRuns = envOnlyRuns;
+            console.log(`Found ${envOnlyRuns.length} run(s) matching environment only`);
+          }
+        }
+      } else {
+        // If no environment, try to match by build number
+        const buildNumberRuns = recentRuns.filter(run => 
+          run.name && run.name.toLowerCase().includes(buildNumber.toLowerCase())
+        );
+        if (buildNumberRuns.length > 0) {
+          candidateRuns = buildNumberRuns;
+          console.log(`Found ${buildNumberRuns.length} run(s) matching build number`);
+        }
       }
+
+      // Take the most recently created run from the candidates
+      if (candidateRuns.length > 0) {
+        const sortedByDate = candidateRuns.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const selectedRun = sortedByDate[0];
+        console.log(`✓ Selected most recent run: #${selectedRun.id} (${selectedRun.status}) - "${selectedRun.name}" - Created: ${selectedRun.created_at}`);
+        return selectedRun.id;
+      }
+
+      console.log(`Attempt ${attempt + 1}: No matching runs found, will retry...`);
     } catch (err) {
-      console.error(`Attempt ${attempt + 1} to find workflow run failed:`, err);
+      console.error(`Attempt ${attempt + 1} to find workflow run on branch ${branch} failed:`, err);
     }
   }
 
+  const warnMsg = environment
+    ? `Failed to find workflow run for build ${buildNumber} in environment ${environment} on branch ${branch} after ${maxRetries} attempts`
+    : `Failed to find workflow run for build ${buildNumber} on branch ${branch} after ${maxRetries} attempts`;
+  console.warn(warnMsg);
   return null;
 }
 
