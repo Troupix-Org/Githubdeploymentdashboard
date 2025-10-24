@@ -74,6 +74,7 @@
     --container-md: 28rem;
     --container-lg: 32rem;
     --container-2xl: 42rem;
+    --container-3xl: 48rem;
     --text-xs: .75rem;
     --text-xs--line-height: calc(1 / .75);
     --text-sm: .875rem;
@@ -690,6 +691,10 @@
     height: calc(var(--spacing) * 6);
   }
 
+  .h-7 {
+    height: calc(var(--spacing) * 7);
+  }
+
   .h-8 {
     height: calc(var(--spacing) * 8);
   }
@@ -736,10 +741,6 @@
 
   .max-h-\[85vh\] {
     max-height: 85vh;
-  }
-
-  .max-h-\[300px\] {
-    max-height: 300px;
   }
 
   .max-h-\[400px\] {
@@ -808,6 +809,10 @@
 
   .max-w-2xl {
     max-width: var(--container-2xl);
+  }
+
+  .max-w-3xl {
+    max-width: var(--container-3xl);
   }
 
   .max-w-\[calc\(100\%-2rem\)\] {
@@ -1132,6 +1137,10 @@
     border-color: #ef4444;
   }
 
+  .border-\[\#f59e0b\] {
+    border-color: #f59e0b;
+  }
+
   .border-input {
     border-color: var(--input);
   }
@@ -1154,6 +1163,10 @@
 
   .bg-\[\#fef2f2\] {
     background-color: #fef2f2;
+  }
+
+  .bg-\[\#fffbeb\] {
+    background-color: #fffbeb;
   }
 
   .bg-background {
@@ -1332,10 +1345,6 @@
 
   .pr-8 {
     padding-right: calc(var(--spacing) * 8);
-  }
-
-  .pb-2 {
-    padding-bottom: calc(var(--spacing) * 2);
   }
 
   .pb-6 {
@@ -1583,11 +1592,6 @@
     outline-style: none;
   }
 
-  .select-all {
-    -webkit-user-select: all;
-    user-select: all;
-  }
-
   .select-none {
     -webkit-user-select: none;
     user-select: none;
@@ -1673,12 +1677,6 @@
   @media (hover: hover) {
     .hover\:bg-\[\#f3f4f6\]:hover {
       background-color: #f3f4f6;
-    }
-  }
-
-  @media (hover: hover) {
-    .hover\:bg-\[\#f9fafb\]:hover {
-      background-color: #f9fafb;
     }
   }
 

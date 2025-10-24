@@ -95,6 +95,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   const [deployProgress, setDeployProgress] = useState({ current: 0, total: 0 });
   const [isDeploying, setIsDeploying] = useState(false);
   const [globalReleaseNumber, setGlobalReleaseNumber] = useState('');
+  const [editingSelection, setEditingSelection] = useState(false);
 
   // Workflow inputs states
   const [workflowInputs, setWorkflowInputs] = useState<{ [pipelineId: string]: WorkflowInput[] }>({});
@@ -289,6 +290,13 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
     return () => clearInterval(interval);
   }, [project.id]);
+
+  // Reset editing state when dialog opens/closes
+  useEffect(() => {
+    if (!showDeployAllDialog) {
+      setEditingSelection(false);
+    }
+  }, [showDeployAllDialog]);
 
   const handleSaveDefaultValue = async (pipelineId: string, inputName: string, value: any) => {
     const pipelineIndex = project.pipelines.findIndex(p => p.id === pipelineId);
@@ -1491,75 +1499,195 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
       {/* Deploy All Confirmation Dialog */}
       <AlertDialog open={showDeployAllDialog} onOpenChange={setShowDeployAllDialog}>
-        <AlertDialogContent className="max-w-2xl" style={{ background: '#ffffff' }}>
+        <AlertDialogContent className="max-w-3xl" style={{ background: '#ffffff' }}>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: '#1f2937' }}>
-              Deploy Multiple Pipelines
+            <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
+              <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
+              Confirm Deployment - {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ color: '#6b7280' }}>
-              Select the pipelines you want to deploy. Each will use its configured build number.
+              Review the deployment details below before proceeding. All pipelines will be deployed sequentially.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Select All Checkbox */}
-            <div className="flex items-center space-x-2 pb-2 border-b border-[#e5e7eb]">
-              <Checkbox
-                id="select-all"
-                checked={selectedPipelines.length === project.pipelines.length}
-                onCheckedChange={toggleSelectAll}
-                disabled={isDeploying}
-              />
-              <Label htmlFor="select-all" className="cursor-pointer" style={{ color: '#374151' }}>
-                Select All ({project.pipelines.length} pipelines)
-              </Label>
+            {/* Global Release Number */}
+            {globalReleaseNumber && (
+              <div className="p-3 rounded-lg border-2" style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', borderColor: '#f59e0b' }}>
+                <div className="flex items-center gap-2">
+                  <Star className="w-5 h-5" style={{ color: '#92400e' }} />
+                  <div>
+                    <div className="font-semibold" style={{ color: '#92400e' }}>Global Release Number</div>
+                    <div className="text-sm" style={{ color: '#78350f' }}>{globalReleaseNumber}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Deployment Summary Table */}
+            <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
+              <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
+                <div className="font-semibold flex items-center gap-3" style={{ color: '#6b21a8' }}>
+                  <Activity className="w-4 h-4" />
+                  <span>Deployment Summary</span>
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs font-normal" 
+                    style={{ 
+                      background: '#ffffff', 
+                      color: selectedPipelines.length === project.pipelines.length ? '#10b981' : '#7c3aed', 
+                      border: `1px solid ${selectedPipelines.length === project.pipelines.length ? '#10b981' : '#c4b5fd'}` 
+                    }}
+                  >
+                    {selectedPipelines.length} / {project.pipelines.length} selected
+                  </Badge>
+                </div>
+                {!isDeploying && !editingSelection && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSelection(true)}
+                    className="text-xs h-7"
+                    style={{ color: '#7c3aed' }}
+                  >
+                    Edit Selection
+                  </Button>
+                )}
+                {editingSelection && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSelection(false)}
+                    className="text-xs h-7"
+                    style={{ color: '#10b981' }}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Done
+                  </Button>
+                )}
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow style={{ background: '#fafafa' }}>
+                    {editingSelection && <TableHead className="w-12"></TableHead>}
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Pipeline</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Repository</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Branch</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Environment</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Build Number</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(editingSelection ? project.pipelines : project.pipelines.filter(p => selectedPipelines.includes(p.id)))
+                    .map((pipeline, index) => {
+                      const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
+                      const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
+                      const isSelected = selectedPipelines.includes(pipeline.id);
+                      return (
+                        <TableRow 
+                          key={pipeline.id}
+                          className="hover:bg-purple-50/30"
+                          style={{ 
+                            borderColor: '#f3e8ff',
+                            background: index % 2 === 0 ? '#ffffff' : '#fafafa',
+                            opacity: editingSelection && !isSelected ? 0.5 : 1
+                          }}
+                        >
+                          {editingSelection && (
+                            <TableCell className="w-12">
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => {
+                                  if (isSelected) {
+                                    setSelectedPipelines(prev => prev.filter(id => id !== pipeline.id));
+                                  } else {
+                                    setSelectedPipelines(prev => [...prev, pipeline.id]);
+                                  }
+                                }}
+                                disabled={!buildNumber}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell>
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs" 
+                              style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}
+                            >
+                              {pipeline.name}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm" style={{ color: '#7c3aed' }}>
+                              <FolderGit2 className="w-3.5 h-3.5" />
+                              {repo?.name || 'Unknown'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-xs font-mono" style={{ color: '#6b7280' }}>
+                              <GitBranch className="w-3 h-3" />
+                              {pipeline.branch}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {pipeline.environment ? (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs font-mono" 
+                                style={getEnvironmentBadgeStyle(pipeline.environment)}
+                              >
+                                {pipeline.environment}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs" style={{ color: '#9ca3af' }}>-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <code 
+                              className="px-2 py-1 rounded font-semibold text-sm" 
+                              style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                            >
+                              {buildNumber}
+                            </code>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Pipeline List */}
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {project.pipelines.map(pipeline => {
-                const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
-                const buildNumber = buildNumbers[pipeline.id];
-                return (
-                  <div 
-                    key={pipeline.id}
-                    className="flex items-center space-x-2 p-3 rounded border border-[#e5e7eb] hover:bg-[#f9fafb] transition-colors"
-                    style={{ background: selectedPipelines.includes(pipeline.id) ? '#f0f9ff' : '#ffffff' }}
-                  >
-                    <Checkbox
-                      id={pipeline.id}
-                      checked={selectedPipelines.includes(pipeline.id)}
-                      onCheckedChange={() => togglePipelineSelection(pipeline.id)}
-                      disabled={isDeploying || !buildNumber}
-                    />
-                    <Label 
-                      htmlFor={pipeline.id} 
-                      className="flex-1 cursor-pointer"
-                      style={{ color: '#1f2937' }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span>{pipeline.name}</span>
-                        {buildNumber ? (
-                          <code 
-                            className="px-2 py-0.5 rounded text-sm" 
-                            style={{ background: '#dbeafe', color: '#2563eb' }}
-                          >
-                            {buildNumber}
-                          </code>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
-                            No build number
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs mt-1" style={{ color: '#9ca3af' }}>
-                        {repo && `${repo.owner}/${repo.repo} • `}Branch: {pipeline.branch}
-                      </div>
-                    </Label>
-                  </div>
-                );
-              })}
-            </div>
+            {/* Warning if no pipelines selected */}
+            {!isDeploying && selectedPipelines.length === 0 && (
+              <Alert className="border-[#ef4444] bg-[#fef2f2]">
+                <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
+                <AlertDescription style={{ color: '#dc2626' }}>
+                  No pipelines selected. Please select at least one pipeline to deploy.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Warning if not all pipelines selected */}
+            {!isDeploying && selectedPipelines.length > 0 && selectedPipelines.length < project.pipelines.length && (
+              <Alert className="border-[#f59e0b] bg-[#fffbeb]">
+                <AlertCircle className="h-4 w-4" style={{ color: '#f59e0b' }} />
+                <AlertDescription style={{ color: '#92400e' }}>
+                  {project.pipelines.length - selectedPipelines.length} pipeline{project.pipelines.length - selectedPipelines.length !== 1 ? 's' : ''} will not be deployed.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Info message */}
+            {!isDeploying && selectedPipelines.length > 0 && (
+              <Alert className="border-[#7c3aed] bg-[#faf5ff]">
+                <Info className="h-4 w-4" style={{ color: '#7c3aed' }} />
+                <AlertDescription style={{ color: '#6b21a8' }}>
+                  <span className="text-xs">
+                    All deployments will be grouped in a single batch. The system will wait 3 seconds after triggering each workflow before identifying the run.
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Progress Bar */}
             {isDeploying && (
@@ -1579,25 +1707,26 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           <AlertDialogFooter>
             <AlertDialogCancel 
               disabled={isDeploying}
-              className="border-[#d1d5db]"
-              style={{ color: '#374151' }}
+              className="border-2"
+              style={{ borderColor: '#d1d5db', color: '#374151' }}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDeployAll}
               disabled={selectedPipelines.length === 0 || isDeploying}
-              className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white"
+              className="text-white"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
             >
               {isDeploying ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Deploying...
+                  Deploying {deployProgress.current} / {deployProgress.total}...
                 </>
               ) : (
                 <>
                   <Rocket className="w-4 h-4 mr-2" />
-                  Deploy {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
+                  Confirm & Deploy {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
                 </>
               )}
             </AlertDialogAction>
