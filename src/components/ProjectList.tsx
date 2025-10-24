@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Plus, Folder, GitBranch, Trash2, Settings, FileJson, Download } from 'lucide-react';
+import { Plus, Folder, GitBranch, Trash2, Settings, FileJson, Download, Rocket } from 'lucide-react';
 import { Project, getProjects, deleteProject, downloadProjectAsJson } from '../lib/storage';
+import { Separator } from './ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +60,91 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
     toast.success(`${project.name} configuration downloaded!`);
   };
 
+  // Separate production and other projects
+  const productionProjects = projects.filter(p => p.isProductionRelease === true);
+  const otherProjects = projects.filter(p => !p.isProductionRelease);
+
+  const renderProjectCard = (project: Project, isProduction: boolean = false) => (
+    <Card
+      key={project.id}
+      className="border-2 transition-all cursor-pointer hover:shadow-lg"
+      style={{ 
+        background: isProduction 
+          ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #dbeafe 100%)' 
+          : 'linear-gradient(to bottom right, #ffffff, #faf5ff)', 
+        borderColor: isProduction ? '#60a5fa' : '#e9d5ff',
+        transition: 'all 0.2s'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.borderColor = isProduction ? '#3b82f6' : '#a855f7'}
+      onMouseLeave={(e) => e.currentTarget.style.borderColor = isProduction ? '#60a5fa' : '#e9d5ff'}
+    >
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1" onClick={() => onSelectProject(project)}>
+            <div className="flex items-center gap-2 mb-1">
+              <CardTitle style={{ color: isProduction ? '#1e40af' : '#6b21a8' }}>
+                {project.name}
+              </CardTitle>
+              {isProduction && (
+                <Rocket className="w-4 h-4" style={{ color: '#3b82f6' }} />
+              )}
+            </div>
+            <CardDescription style={{ color: isProduction ? '#2563eb' : '#7c3aed' }}>
+              {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
+            </CardDescription>
+          </div>
+          <div className="flex gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(e) => handleQuickDownload(project, e)}
+              className="h-8 w-8"
+              style={{ 
+                hover: isProduction ? 'bg-blue-100' : 'bg-purple-50' 
+              }}
+              title="Download configuration"
+            >
+              <Download className="w-4 h-4" style={{ color: isProduction ? '#2563eb' : '#7c3aed' }} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onConfigureProject(project);
+              }}
+              className="h-8 w-8"
+              style={{ 
+                hover: isProduction ? 'bg-blue-100' : 'bg-purple-50' 
+              }}
+              title="Configure"
+            >
+              <Settings className="w-4 h-4" style={{ color: isProduction ? '#2563eb' : '#7c3aed' }} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteConfirm(project.id);
+              }}
+              className="h-8 w-8 hover:bg-red-50"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" style={{ color: '#ec4899' }} />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent onClick={() => onSelectProject(project)}>
+        <div className="flex items-center gap-2" style={{ color: isProduction ? '#2563eb' : '#7c3aed' }}>
+          <GitBranch className="w-4 h-4" />
+          <span className="text-sm">{project.pipelines.length} pipeline{project.pipelines.length !== 1 ? 's' : ''}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -106,73 +192,58 @@ export function ProjectList({ onAddProject, onSelectProject, onConfigureProject 
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="border-2 transition-all cursor-pointer hover:shadow-lg"
-              style={{ 
-                background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', 
-                borderColor: '#e9d5ff',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = '#a855f7'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e9d5ff'}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1" onClick={() => onSelectProject(project)}>
-                    <CardTitle style={{ color: '#6b21a8' }}>{project.name}</CardTitle>
-                    <CardDescription style={{ color: '#7c3aed' }}>
-                      {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => handleQuickDownload(project, e)}
-                      className="h-8 w-8 hover:bg-purple-50"
-                      title="Download configuration"
-                    >
-                      <Download className="w-4 h-4" style={{ color: '#7c3aed' }} />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onConfigureProject(project);
-                      }}
-                      className="h-8 w-8 hover:bg-purple-50"
-                      title="Configure"
-                    >
-                      <Settings className="w-4 h-4" style={{ color: '#7c3aed' }} />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteConfirm(project.id);
-                      }}
-                      className="h-8 w-8 hover:bg-red-50"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" style={{ color: '#ec4899' }} />
-                    </Button>
+        <>
+          {/* Other Projects Section */}
+          {otherProjects.length > 0 && (
+            <div className="space-y-4">
+              {productionProjects.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <Folder className="w-5 h-5" style={{ color: '#a855f7' }} />
+                  <h3 className="text-xl" style={{ color: '#6b21a8' }}>
+                    Other Projects
+                  </h3>
+                  <div 
+                    className="px-3 py-1 rounded-full text-sm"
+                    style={{ background: '#faf5ff', color: '#6b21a8' }}
+                  >
+                    {otherProjects.length}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent onClick={() => onSelectProject(project)}>
-                <div className="flex items-center gap-2" style={{ color: '#7c3aed' }}>
-                  <GitBranch className="w-4 h-4" />
-                  <span className="text-sm">{project.pipelines.length} pipeline{project.pipelines.length !== 1 ? 's' : ''}</span>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {otherProjects.map((project) => renderProjectCard(project, false))}
+              </div>
+            </div>
+          )}
+
+          {/* Separator between sections */}
+          {productionProjects.length > 0 && otherProjects.length > 0 && (
+            <div className="py-4">
+              <Separator style={{ background: 'linear-gradient(90deg, transparent 0%, #93c5fd 50%, transparent 100%)' }} />
+            </div>
+          )}
+
+          {/* Production Projects Section */}
+          {productionProjects.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Rocket className="w-5 h-5" style={{ color: '#3b82f6' }} />
+                <h3 className="text-xl" style={{ color: '#1e40af' }}>
+                  Production Projects
+                </h3>
+                <div 
+                  className="px-3 py-1 rounded-full text-sm"
+                  style={{ background: '#dbeafe', color: '#1e40af' }}
+                >
+                  {productionProjects.length}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {productionProjects.map((project) => renderProjectCard(project, true))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>

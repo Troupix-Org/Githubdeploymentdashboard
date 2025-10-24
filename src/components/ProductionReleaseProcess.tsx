@@ -330,15 +330,18 @@ export function ProductionReleaseProcess({
     const stagingEmailSent = getStepStatus(2, 'staging_email_sent');
     const prodEmailSent = getStepStatus(4, 'prod_email_sent');
     const prodCompleteEmailSent = getStepStatus(7, 'prod_complete_email_sent');
+    const step1ManuallyCompleted = getStepStatus(1, 'step_1_completed');
+    const step6ManuallyCompleted = getStepStatus(6, 'step_6_completed');
+    const step8ManuallyCompleted = getStepStatus(8, 'step_8_completed');
     
     const newSteps: ProductionStep[] = [
       {
         id: 1,
         title: 'Deploy to Staging',
-        description: 'Staging environment is up to date with current release (assumed completed)',
-        status: hasStagingDeployments && stagingDeploymentsComplete ? 'completed' : 'pending',
+        description: 'Staging environment is up to date with current release',
+        status: step1ManuallyCompleted || (hasStagingDeployments && stagingDeploymentsComplete) ? 'completed' : 'pending',
         icon: GitBranch,
-        requiresAction: false,
+        requiresAction: true,
       },
       {
         id: 2,
@@ -376,7 +379,7 @@ export function ProductionReleaseProcess({
         id: 6,
         title: 'Deploy to Production',
         description: 'Execute production deployment',
-        status: hasProdDeployments && prodDeploymentsComplete ? 'completed' : hasProdDeployments ? 'in_progress' : 'pending',
+        status: step6ManuallyCompleted || (hasProdDeployments && prodDeploymentsComplete) ? 'completed' : hasProdDeployments ? 'in_progress' : 'pending',
         icon: Rocket,
         requiresAction: true,
       },
@@ -392,7 +395,7 @@ export function ProductionReleaseProcess({
         id: 8,
         title: 'Create GitHub Release',
         description: 'Generate release with release notes',
-        status: 'pending',
+        status: step8ManuallyCompleted ? 'completed' : 'pending',
         icon: FileCheck,
         requiresAction: true,
       },
@@ -520,7 +523,30 @@ Deployment Team`
 
   const copyEmailToClipboard = (template: EmailTemplate) => {
     const emailText = `To: ${template.to}\nSubject: ${template.subject}\n\n${template.body}`;
-    navigator.clipboard.writeText(emailText);
+    
+    // Use textarea method for maximum compatibility (works in all environments)
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = emailText;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-999999px';
+      textarea.style.top = '-999999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      if (successful) {
+        alert('Email template copied to clipboard!');
+      } else {
+        throw new Error('Copy command failed');
+      }
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      alert('Failed to copy to clipboard. Please copy the text manually.');
+    }
   };
 
   const handleStagingEmailSent = () => {
@@ -668,8 +694,6 @@ Deployment Team`
   };
 
   const canExecuteStep = (stepId: number): boolean => {
-    if (stepId === 1) return false; // Assumption: staging already done
-    
     const step = steps.find(s => s.id === stepId);
     if (!step) return false;
     
@@ -856,20 +880,92 @@ Deployment Team`
                         return null;
                       })()}
                       
-                      {step.requiresAction && canExecuteStep(step.id) && step.status !== 'completed' && (
+                      {/* Reset button for completed steps */}
+                      {step.status === 'completed' && (
                         <Button
                           size="sm"
-                          onClick={() => handleStepAction(step.id)}
-                          className="text-white mt-2"
-                          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+                          variant="outline"
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to reset "${step.title}"?`)) {
+                              if (currentRelease) {
+                                updateReleaseStep(step.id, 'pending');
+                              } else {
+                                // Clear the specific step completion flag
+                                localStorage.removeItem(`${STORAGE_PREFIX}step_${step.id}_completed`);
+                                
+                                // Clear step-specific data
+                                if (step.id === 2) {
+                                  localStorage.removeItem(`${STORAGE_PREFIX}staging_email_sent`);
+                                } else if (step.id === 3) {
+                                  localStorage.removeItem(`${STORAGE_PREFIX}qa_signoff`);
+                                  setQaSignOff({
+                                    testerName: '',
+                                    testDate: new Date().toISOString().split('T')[0],
+                                    testEnvironment: 'staging',
+                                    testsPassed: false,
+                                    comments: '',
+                                  });
+                                } else if (step.id === 4) {
+                                  localStorage.removeItem(`${STORAGE_PREFIX}prod_email_sent`);
+                                  localStorage.removeItem(`${STORAGE_PREFIX}compliance_file`);
+                                  setComplianceFile(null);
+                                } else if (step.id === 5) {
+                                  localStorage.removeItem(`${STORAGE_PREFIX}po_signoff`);
+                                  setPoSignOff({
+                                    ownerName: '',
+                                    approvalDate: new Date().toISOString().split('T')[0],
+                                    comments: '',
+                                  });
+                                } else if (step.id === 7) {
+                                  localStorage.removeItem(`${STORAGE_PREFIX}prod_complete_email_sent`);
+                                }
+                              }
+                              updateSteps();
+                            }
+                          }}
+                          className="text-xs mt-2"
+                          style={{ borderColor: '#ef4444', color: '#ef4444' }}
                         >
-                          {step.id === 2 || step.id === 4 || step.id === 7 ? 'Compose Email' :
-                           step.id === 3 ? 'Provide Sign-off' :
-                           step.id === 5 ? 'Approve Release' :
-                           step.id === 6 ? 'Deploy to Production' :
-                           step.id === 8 ? 'Create Release' : 'Execute'}
-                          <ChevronRight className="w-4 h-4 ml-1" />
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Reset Step
                         </Button>
+                      )}
+                      
+                      {step.requiresAction && canExecuteStep(step.id) && step.status !== 'completed' && (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleStepAction(step.id)}
+                            className="text-white"
+                            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+                          >
+                            {step.id === 2 || step.id === 4 || step.id === 7 ? 'Compose Email' :
+                             step.id === 3 ? 'Provide Sign-off' :
+                             step.id === 5 ? 'Approve Release' :
+                             step.id === 6 ? 'Deploy to Production' :
+                             step.id === 8 ? 'Create Release' : 'Execute'}
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                          {(step.id === 1 || step.id === 6 || step.id === 8) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (currentRelease) {
+                                  updateReleaseStep(step.id, 'completed');
+                                } else {
+                                  saveToStorage(`step_${step.id}_completed`, true);
+                                }
+                                updateSteps();
+                              }}
+                              className="text-xs"
+                              style={{ borderColor: '#10b981', color: '#10b981' }}
+                            >
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Mark as Complete
+                            </Button>
+                          )}
+                        </div>
                       )}
 
                       {!canExecuteStep(step.id) && step.status !== 'completed' && step.id !== 1 && (
