@@ -25,8 +25,9 @@ import {
   XCircle,
   Loader2,
   Info,
+  Trash2,
 } from 'lucide-react';
-import { Project, Deployment, saveDeployment, Repository, saveProject, getDeploymentsByProject } from '../lib/storage';
+import { Project, Deployment, saveDeployment, Repository, saveProject, getDeploymentsByProject, deleteDeployment, deleteDeploymentsByBatch } from '../lib/storage';
 import { triggerWorkflow, getLatestBuildsForBranch, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, getWorkflowRun } from '../lib/github';
 import {
   Dialog,
@@ -110,6 +111,12 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   // Deployment Status states
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Delete deployment states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteBatchDialogOpen, setDeleteBatchDialogOpen] = useState(false);
+  const [deploymentToDelete, setDeploymentToDelete] = useState<string | null>(null);
+  const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
 
   // Sync with prop changes
   useEffect(() => {
@@ -119,6 +126,28 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   const loadDeployments = () => {
     const data = getDeploymentsByProject(project.id);
     setDeployments(data.sort((a, b) => b.startedAt - a.startedAt));
+  };
+
+  const handleDeleteDeployment = () => {
+    if (deploymentToDelete) {
+      deleteDeployment(deploymentToDelete);
+      loadDeployments();
+      setDeleteDialogOpen(false);
+      setDeploymentToDelete(null);
+      setSuccess('Deployment deleted successfully');
+      setTimeout(() => setSuccess(''), 2000);
+    }
+  };
+
+  const handleDeleteBatch = () => {
+    if (batchToDelete) {
+      deleteDeploymentsByBatch(batchToDelete);
+      loadDeployments();
+      setDeleteBatchDialogOpen(false);
+      setBatchToDelete(null);
+      setSuccess('Batch deleted successfully');
+      setTimeout(() => setSuccess(''), 2000);
+    }
   };
 
   const refreshDeploymentStatus = async () => {
@@ -1373,6 +1402,18 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                               </Badge>
                             )}
                           </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setBatchToDelete(batchId);
+                              setDeleteBatchDialogOpen(true);
+                            }}
+                            className="hover:bg-red-50 h-7"
+                            title="Delete this batch"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+                          </Button>
                         </div>
 
                         {/* Batch Deployments Table */}
@@ -1444,24 +1485,36 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                               </span>
                             </TableCell>
                             <TableCell className="text-right">
-                              {deployment.workflowRunId && repo ? (
+                              <div className="flex items-center justify-end gap-1">
+                                {deployment.workflowRunId && repo && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      window.open(
+                                        `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${deployment.workflowRunId}`,
+                                        '_blank'
+                                      );
+                                    }}
+                                    className="hover:bg-purple-100 h-7 w-7 p-0"
+                                    title="View on GitHub"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" style={{ color: '#7c3aed' }} />
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => {
-                                    window.open(
-                                      `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${deployment.workflowRunId}`,
-                                      '_blank'
-                                    );
+                                    setDeploymentToDelete(deployment.id);
+                                    setDeleteDialogOpen(true);
                                   }}
-                                  className="hover:bg-purple-100"
-                                  title="View on GitHub"
+                                  className="hover:bg-red-50 h-7 w-7 p-0"
+                                  title="Delete deployment"
                                 >
-                                  <ExternalLink className="w-3.5 h-3.5" style={{ color: '#7c3aed' }} />
+                                  <Trash2 className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
                                 </Button>
-                              ) : (
-                                <span className="text-xs" style={{ color: '#9ca3af' }}>-</span>
-                              )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -1758,6 +1811,74 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                   Confirm & Deploy {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
                 </>
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Deployment Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent style={{ background: '#ffffff' }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
+              <Trash2 className="w-5 h-5" style={{ color: '#ef4444' }} />
+              Delete Deployment
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: '#6b7280' }}>
+              Are you sure you want to delete this deployment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeploymentToDelete(null);
+              }}
+              style={{ color: '#374151' }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteDeployment}
+              className="text-white"
+              style={{ background: '#ef4444' }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Batch Confirmation Dialog */}
+      <AlertDialog open={deleteBatchDialogOpen} onOpenChange={setDeleteBatchDialogOpen}>
+        <AlertDialogContent style={{ background: '#ffffff' }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
+              <Trash2 className="w-5 h-5" style={{ color: '#ef4444' }} />
+              Delete Deployment Batch
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: '#6b7280' }}>
+              Are you sure you want to delete this entire deployment batch? All deployments in this batch will be removed. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setDeleteBatchDialogOpen(false);
+                setBatchToDelete(null);
+              }}
+              style={{ color: '#374151' }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBatch}
+              className="text-white"
+              style={{ background: '#ef4444' }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Batch
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
