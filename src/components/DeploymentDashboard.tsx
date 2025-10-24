@@ -55,6 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { ProductionStepper } from './ProductionStepper';
 
 interface DeploymentDashboardProps {
   project: Project;
@@ -664,7 +665,14 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
             Back
           </Button>
           <div>
-            <h2 className="text-2xl" style={{ color: '#e9d5ff' }}>{project.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl" style={{ color: '#e9d5ff' }}>{project.name}</h2>
+              {project.isProductionRelease && (
+                <Badge className="text-white px-2 py-0.5" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}>
+                  PRODUCTION
+                </Badge>
+              )}
+            </div>
             <p style={{ color: '#cbd5e1' }}>
               {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
             </p>
@@ -678,6 +686,23 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           Create Release
         </Button>
       </div>
+
+      {/* Production Release Stepper */}
+      {project.isProductionRelease && (
+        <ProductionStepper
+          project={project}
+          onStartDeployment={() => {
+            setDeployOpen(true);
+            // Scroll to deploy section
+            setTimeout(() => {
+              const deploySection = document.getElementById('deploy-section');
+              deploySection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }}
+          onCreateRelease={() => setShowReleaseDialog(true)}
+          deployments={deployments}
+        />
+      )}
 
       {/* Repositories Overview */}
       <Collapsible open={repositoriesOpen} onOpenChange={setRepositoriesOpen}>
@@ -809,7 +834,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
       {/* Deploy Section */}
       <Collapsible open={deployOpen} onOpenChange={setDeployOpen}>
-        <Card className="border-[#e5e7eb]" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)' }}>
+        <Card id="deploy-section" className="border-[#e5e7eb]" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)' }}>
           <CardHeader>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="p-0 h-auto hover:bg-transparent w-full">

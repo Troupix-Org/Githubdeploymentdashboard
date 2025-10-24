@@ -26,6 +26,7 @@ export interface Project {
   repositories: Repository[];
   pipelines: Pipeline[];
   createdAt: number;
+  isProductionRelease?: boolean; // Flag to indicate if this is a production release project
 }
 
 export interface Deployment {

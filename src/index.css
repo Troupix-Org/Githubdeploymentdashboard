@@ -65,7 +65,9 @@
     --color-red-50: oklch(.971 .013 17.38);
     --color-purple-50: oklch(.977 .014 308.299);
     --color-purple-100: oklch(.946 .033 307.174);
+    --color-purple-200: oklch(.902 .063 306.703);
     --color-purple-300: oklch(.827 .119 306.383);
+    --color-purple-400: oklch(.714 .203 305.504);
     --color-pink-50: oklch(.971 .014 343.198);
     --color-slate-700: oklch(.372 .044 257.287);
     --color-black: #000;
@@ -541,6 +543,10 @@
     margin-inline: calc(var(--spacing) * -1);
   }
 
+  .mx-1 {
+    margin-inline: calc(var(--spacing) * 1);
+  }
+
   .mx-auto {
     margin-inline: auto;
   }
@@ -561,6 +567,10 @@
     margin-top: calc(var(--spacing) * 2);
   }
 
+  .mt-3 {
+    margin-top: calc(var(--spacing) * 3);
+  }
+
   .mt-4 {
     margin-top: calc(var(--spacing) * 4);
   }
@@ -579,6 +589,10 @@
 
   .mr-2 {
     margin-right: calc(var(--spacing) * 2);
+  }
+
+  .mb-1 {
+    margin-bottom: calc(var(--spacing) * 1);
   }
 
   .mb-1\.5 {
@@ -610,6 +624,10 @@
     -webkit-box-orient: vertical;
     display: -webkit-box;
     overflow: hidden;
+  }
+
+  .block {
+    display: block;
   }
 
   .flex {
@@ -715,6 +733,10 @@
     height: calc(var(--spacing) * 16);
   }
 
+  .h-\[1\.15rem\] {
+    height: 1.15rem;
+  }
+
   .h-\[calc\(100\%-1px\)\] {
     height: calc(100% - 1px);
   }
@@ -761,6 +783,10 @@
 
   .min-h-screen {
     min-height: 100vh;
+  }
+
+  .w-0\.5 {
+    width: calc(var(--spacing) * .5);
   }
 
   .w-1 {
@@ -1145,6 +1171,14 @@
     border-color: var(--input);
   }
 
+  .border-purple-200 {
+    border-color: var(--color-purple-200);
+  }
+
+  .border-purple-400 {
+    border-color: var(--color-purple-400);
+  }
+
   .border-transparent {
     border-color: #0000;
   }
@@ -1237,6 +1271,16 @@
 
   .bg-white {
     background-color: var(--color-white);
+  }
+
+  .bg-white\/50 {
+    background-color: #ffffff80;
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-white\/50 {
+      background-color: color-mix(in oklab, var(--color-white) 50%, transparent);
+    }
   }
 
   .p-0 {
@@ -1517,6 +1561,11 @@
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
 
+  .ring-0 {
+    --tw-ring-shadow: var(--tw-ring-inset, ) 0 0 0 calc(0px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+
   .ring-offset-background {
     --tw-ring-offset-color: var(--background);
   }
@@ -1574,6 +1623,12 @@
 
   .transition-shadow {
     transition-property: box-shadow;
+    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+    transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+
+  .transition-transform {
+    transition-property: transform, translate, scale, rotate;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
@@ -2039,6 +2094,11 @@
     background-color: var(--card);
   }
 
+  .data-\[state\=checked\]\:translate-x-\[calc\(100\%-2px\)\][data-state="checked"] {
+    --tw-translate-x: calc(100% - 2px);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+
   .data-\[state\=checked\]\:border-primary[data-state="checked"] {
     border-color: var(--primary);
   }
@@ -2085,6 +2145,15 @@
 
   .data-\[state\=selected\]\:bg-muted[data-state="selected"] {
     background-color: var(--muted);
+  }
+
+  .data-\[state\=unchecked\]\:translate-x-0[data-state="unchecked"] {
+    --tw-translate-x: calc(var(--spacing) * 0);
+    translate: var(--tw-translate-x) var(--tw-translate-y);
+  }
+
+  .data-\[state\=unchecked\]\:bg-switch-background[data-state="unchecked"] {
+    background-color: var(--switch-background);
   }
 
   @media (width >= 40rem) {
@@ -2252,6 +2321,24 @@
 
   .dark\:data-\[state\=checked\]\:bg-primary:is(.dark *)[data-state="checked"] {
     background-color: var(--primary);
+  }
+
+  .dark\:data-\[state\=checked\]\:bg-primary-foreground:is(.dark *)[data-state="checked"] {
+    background-color: var(--primary-foreground);
+  }
+
+  .dark\:data-\[state\=unchecked\]\:bg-card-foreground:is(.dark *)[data-state="unchecked"] {
+    background-color: var(--card-foreground);
+  }
+
+  .dark\:data-\[state\=unchecked\]\:bg-input\/80:is(.dark *)[data-state="unchecked"] {
+    background-color: var(--input);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .dark\:data-\[state\=unchecked\]\:bg-input\/80:is(.dark *)[data-state="unchecked"] {
+      background-color: color-mix(in oklab, var(--input) 80%, transparent);
+    }
   }
 
   .\[\&_p\]\:leading-relaxed p {

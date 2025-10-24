@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from './ui/select';
 import { ImportExportDialog } from './ImportExportDialog';
+import { Switch } from './ui/switch';
+import { Badge } from './ui/badge';
 
 interface ProjectConfigProps {
   project?: Project;
@@ -26,6 +28,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
   const [name, setName] = useState(project?.name || '');
   const [repositories, setRepositories] = useState<Repository[]>(project?.repositories || []);
   const [pipelines, setPipelines] = useState<Pipeline[]>(project?.pipelines || []);
+  const [isProductionRelease, setIsProductionRelease] = useState(project?.isProductionRelease || false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [workflows, setWorkflows] = useState<{ [repoId: string]: any[] }>({});
@@ -37,6 +40,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
       setName(project.name);
       setRepositories(project.repositories);
       setPipelines(project.pipelines);
+      setIsProductionRelease(project.isProductionRelease || false);
     }
   }, [project]);
 
@@ -154,6 +158,7 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
         repositories,
         pipelines,
         createdAt: project?.createdAt || Date.now(),
+        isProductionRelease,
       };
 
       await saveProject(projectData);
@@ -216,6 +221,31 @@ export function ProjectConfig({ project, onBack, onSaved }: ProjectConfigProps) 
               onChange={(e) => setName(e.target.value)}
               className="border-2"
               style={{ background: '#ffffff', color: '#1f2937', borderColor: '#c4b5fd' }}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between p-4 rounded-lg border-2" style={{ background: 'linear-gradient(to right, #faf5ff, #fce7f3)', borderColor: '#e9d5ff' }}>
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="production-release" className="font-medium" style={{ color: '#6b21a8' }}>
+                  Production Release Project
+                </Label>
+                {isProductionRelease && (
+                  <Badge className="text-white text-xs px-2 py-0.5" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}>
+                    PRODUCTION
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm" style={{ color: '#7c3aed' }}>
+                {isProductionRelease 
+                  ? 'This project includes a stepper to validate all production release steps' 
+                  : 'Enable to add production release validation workflow'}
+              </p>
+            </div>
+            <Switch
+              id="production-release"
+              checked={isProductionRelease}
+              onCheckedChange={setIsProductionRelease}
             />
           </div>
         </CardContent>
