@@ -20,9 +20,10 @@ import {
   GitCommit,
   ChevronDown,
   ChevronUp,
+  Star,
 } from 'lucide-react';
-import { Project, Deployment, getDeploymentsByProject, saveDeployment, Repository } from '../lib/storage';
-import { triggerWorkflow, getWorkflowRuns, getLatestBuildForBranch, getWorkflowInputs, WorkflowInput } from '../lib/github';
+import { Project, Deployment, getDeploymentsByProject, saveDeployment, Repository, saveProject } from '../lib/storage';
+import { triggerWorkflow, getWorkflowRuns, getLatestBuildForBranch, getLatestBuildsForBranch, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun } from '../lib/github';
 import {
   Dialog,
   DialogContent,
@@ -56,7 +57,7 @@ interface DeploymentDashboardProps {
   onBack: () => void;
 }
 
-interface QAReleaseBuildInfo {
+interface LatestBuildInfo {
   buildNumber?: string;
   commit?: {
     sha: string;
@@ -67,10 +68,13 @@ interface QAReleaseBuildInfo {
   status?: string;
   conclusion?: string;
   url?: string;
+  runId?: number;
+  createdAt?: string;
   loading?: boolean;
 }
 
-export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProps) {
+export function DeploymentDashboard({ project: initialProject, onBack }: DeploymentDashboardProps) {
+  const [project, setProject] = useState<Project>(initialProject);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState(project.pipelines[0]?.id || '');
   const [buildNumbers, setBuildNumbers] = useState<{ [pipelineId: string]: string }>({});
@@ -80,7 +84,9 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
   const [refreshing, setRefreshing] = useState(false);
   const [showReleaseDialog, setShowReleaseDialog] = useState(false);
   const [selectedRepoForRelease, setSelectedRepoForRelease] = useState(project.repositories[0]?.id || '');
-  const [qaReleaseBuilds, setQaReleaseBuilds] = useState<{ [pipelineId: string]: QAReleaseBuildInfo }>({});
+  const [latestBuilds, setLatestBuilds] = useState<{ [pipelineId: string]: LatestBuildInfo }>({});
+  const [allBuilds, setAllBuilds] = useState<{ [pipelineId: string]: LatestBuildInfo[] }>({});
+  const [showAllBuilds, setShowAllBuilds] = useState<{ [pipelineId: string]: boolean }>({});
   
   // Deploy All Dialog states
   const [showDeployAllDialog, setShowDeployAllDialog] = useState(false);
@@ -97,6 +103,11 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
   const [repositoriesOpen, setRepositoriesOpen] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Sync with prop changes
+  useEffect(() => {
+    setProject(initialProject);
+  }, [initialProject]);
 
   const loadDeployments = () => {
     const data = getDeploymentsByProject(project.id);
@@ -147,11 +158,11 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
     }
   };
 
-  const loadQAReleaseBuilds = async () => {
-    // Load QA release builds for each pipeline
+  const loadLatestBuilds = async () => {
+    // Load latest builds from the configured branch for each pipeline
     for (const pipeline of project.pipelines) {
       // Set loading state
-      setQaReleaseBuilds(prev => ({
+      setLatestBuilds(prev => ({
         ...prev,
         [pipeline.id]: { loading: true },
       }));
@@ -159,7 +170,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
       // Find the repository for this pipeline
       const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
       if (!repo) {
-        setQaReleaseBuilds(prev => ({
+        setLatestBuilds(prev => ({
           ...prev,
           [pipeline.id]: {},
         }));
@@ -167,22 +178,34 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
       }
 
       try {
-        const buildData = await getLatestBuildForBranch(
+        // Load last 5 builds
+        const buildsData = await getLatestBuildsForBranch(
           repo.owner,
           repo.repo,
           pipeline.workflowFile,
-          'qarelease'
+          pipeline.branch,
+          5
         );
         
-        setQaReleaseBuilds(prev => ({
+        setAllBuilds(prev => ({
           ...prev,
-          [pipeline.id]: buildData || {},
+          [pipeline.id]: buildsData || [],
+        }));
+        
+        // Set the latest build (first one) as the default
+        setLatestBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: buildsData[0] || {},
         }));
       } catch (err) {
-        console.error(`Failed to load QA release build for ${pipeline.name}:`, err);
-        setQaReleaseBuilds(prev => ({
+        console.error(`Failed to load latest builds for ${pipeline.name} on ${pipeline.branch}:`, err);
+        setLatestBuilds(prev => ({
           ...prev,
           [pipeline.id]: {},
+        }));
+        setAllBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: [],
         }));
       }
     }
@@ -208,7 +231,10 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
         // Initialize input values with defaults
         const defaultValues: Record<string, any> = {};
         inputs.forEach(input => {
-          if (input.default !== undefined) {
+          // First check if there's a saved default value for this pipeline
+          if (pipeline.defaultInputValues && pipeline.defaultInputValues[input.name] !== undefined) {
+            defaultValues[input.name] = pipeline.defaultInputValues[input.name];
+          } else if (input.default !== undefined) {
             defaultValues[input.name] = input.default;
           } else if (input.type === 'boolean') {
             defaultValues[input.name] = false;
@@ -229,7 +255,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
 
   useEffect(() => {
     loadDeployments();
-    loadQAReleaseBuilds();
+    loadLatestBuilds();
     loadWorkflowInputs();
     
     // Auto-refresh every 10 seconds
@@ -239,6 +265,39 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
 
     return () => clearInterval(interval);
   }, [project.id, selectedPipeline]);
+
+  const handleSaveDefaultValue = async (pipelineId: string, inputName: string, value: any) => {
+    const pipelineIndex = project.pipelines.findIndex(p => p.id === pipelineId);
+    if (pipelineIndex === -1) return;
+
+    // Update the pipeline with the new default value
+    const updatedPipeline = {
+      ...project.pipelines[pipelineIndex],
+      defaultInputValues: {
+        ...project.pipelines[pipelineIndex].defaultInputValues,
+        [inputName]: value,
+      },
+    };
+
+    // Update the project
+    const updatedProject = {
+      ...project,
+      pipelines: [
+        ...project.pipelines.slice(0, pipelineIndex),
+        updatedPipeline,
+        ...project.pipelines.slice(pipelineIndex + 1),
+      ],
+    };
+
+    try {
+      await saveProject(updatedProject);
+      setProject(updatedProject); // Update local state to reflect changes
+      setSuccess(`Default value saved for ${inputName}`);
+      setTimeout(() => setSuccess(''), 2000);
+    } catch (err) {
+      setError('Failed to save default value');
+    }
+  };
 
   const handleDeploy = async (pipelineId: string) => {
     const pipeline = project.pipelines.find(p => p.id === pipelineId);
@@ -289,9 +348,14 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
         workflowParams
       );
 
-      // Wait a bit and fetch the latest run
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const runs = await getWorkflowRuns(repository.owner, repository.repo, pipeline.workflowFile, 1);
+      // Find the triggered workflow run
+      const workflowRunId = await findTriggeredWorkflowRun(
+        repository.owner,
+        repository.repo,
+        pipeline.workflowFile,
+        buildNumber,
+        pipeline.branch
+      );
       
       const deployment: Deployment = {
         id: Date.now().toString(),
@@ -301,7 +365,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
         buildNumber,
         globalReleaseNumber: globalReleaseNumber || undefined,
         status: 'pending',
-        workflowRunId: runs[0]?.id,
+        workflowRunId: workflowRunId || undefined,
         startedAt: Date.now(),
       };
 
@@ -384,9 +448,14 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           workflowParams
         );
 
-        // Wait a bit and fetch the latest run
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const runs = await getWorkflowRuns(repository.owner, repository.repo, pipeline.workflowFile, 1);
+        // Find the triggered workflow run
+        const workflowRunId = await findTriggeredWorkflowRun(
+          repository.owner,
+          repository.repo,
+          pipeline.workflowFile,
+          buildNumber,
+          pipeline.branch
+        );
         
         const deployment: Deployment = {
           id: `${Date.now()}-${pipeline.id}`,
@@ -396,7 +465,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           buildNumber,
           globalReleaseNumber: globalReleaseNumber || undefined,
           status: 'pending',
-          workflowRunId: runs[0]?.id,
+          workflowRunId: workflowRunId || undefined,
           startedAt: Date.now(),
         };
 
@@ -576,19 +645,20 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                   border: '2px solid #a78bfa' 
                 }}
               >
-                Latest QA Release Builds
+                Latest Builds by Branch
               </Badge>
             </div>
           </CardHeader>
           <CollapsibleContent>
             <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {project.repositories.map((repo) => {
-              const qaInfo = qaReleaseBuilds[repo.id];
+            {project.pipelines.map((pipeline) => {
+              const buildInfo = latestBuilds[pipeline.id];
+              const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
               
               return (
                 <Card
-                  key={repo.id}
+                  key={pipeline.id}
                   className="border-2"
                   style={{ background: 'linear-gradient(to bottom right, #ffffff, #faf5ff)', borderColor: '#c4b5fd' }}
                 >
@@ -597,35 +667,37 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <FolderGit2 className="w-4 h-4 flex-shrink-0" style={{ color: '#8b5cf6' }} />
                         <div className="flex-1 min-w-0">
-                          <p className="truncate font-semibold" style={{ color: '#6b21a8' }}>{repo.name}</p>
-                          <p className="text-xs truncate" style={{ color: '#7c3aed' }}>
-                            {repo.owner}/{repo.repo}
-                          </p>
+                          <p className="truncate font-semibold" style={{ color: '#6b21a8' }}>{pipeline.name}</p>
+                          {repo && (
+                            <p className="text-xs truncate" style={{ color: '#7c3aed' }}>
+                              {repo.owner}/{repo.repo}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      {qaInfo && !qaInfo.loading && qaInfo.commit && (
+                      {buildInfo && !buildInfo.loading && buildInfo.commit && (
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          {getQAStatusIcon(qaInfo.status, qaInfo.conclusion)}
+                          {getQAStatusIcon(buildInfo.status, buildInfo.conclusion)}
                         </div>
                       )}
                     </div>
 
-                    {/* QA Release Build Info */}
-                    {qaInfo?.loading ? (
+                    {/* Latest Build Info */}
+                    {buildInfo?.loading ? (
                       <div className="flex items-center gap-2 text-xs px-2 py-1.5 rounded border" style={{ background: '#faf5ff', color: '#7c3aed', borderColor: '#ddd6fe' }}>
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         <span>Loading...</span>
                       </div>
-                    ) : qaInfo?.commit ? (
+                    ) : buildInfo?.commit ? (
                       <div className="space-y-2 px-2 py-2 rounded border" style={{ background: '#fefcff', borderColor: '#ddd6fe' }}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5">
                             <GitBranch className="w-3 h-3" style={{ color: '#8b5cf6' }} />
-                            <span className="text-xs font-medium" style={{ color: '#7c3aed' }}>qarelease</span>
+                            <span className="text-xs font-medium" style={{ color: '#7c3aed' }}>{pipeline.branch}</span>
                           </div>
-                          {qaInfo.buildNumber && (
+                          {buildInfo.buildNumber && (
                             <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ color: '#6b21a8', background: '#ede9fe' }}>
-                              {qaInfo.buildNumber}
+                              {buildInfo.buildNumber}
                             </span>
                           )}
                         </div>
@@ -633,25 +705,25 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                         <div className="flex items-start gap-1.5">
                           <GitCommit className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: '#8b5cf6' }} />
                           <div className="flex-1 min-w-0 space-y-1">
-                            <p className="text-xs truncate font-medium" style={{ color: '#1f2937' }} title={qaInfo.commit.message}>
-                              {qaInfo.commit.message}
+                            <p className="text-xs truncate font-medium" style={{ color: '#1f2937' }} title={buildInfo.commit.message}>
+                              {buildInfo.commit.message}
                             </p>
                             <div className="flex flex-col gap-1">
                               <code className="text-xs px-1.5 py-0.5 rounded truncate" style={{ background: '#ede9fe', color: '#6b21a8' }}>
-                                {qaInfo.commit.sha}
+                                {buildInfo.commit.sha}
                               </code>
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-xs truncate" style={{ color: '#9ca3af' }}>
-                                  by {qaInfo.commit.author}
+                                  by {buildInfo.commit.author}
                                 </span>
                                 <span className="text-xs" style={{ color: '#9ca3af' }}>
-                                  {formatRelativeDate(qaInfo.commit.date)}
+                                  {formatRelativeDate(buildInfo.commit.date)}
                                 </span>
                               </div>
                             </div>
-                            {qaInfo.url && (
+                            {buildInfo.url && (
                               <a
-                                href={qaInfo.url}
+                                href={buildInfo.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs inline-flex items-center gap-1 hover:underline"
@@ -666,9 +738,7 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                         </div>
                       </div>
                     ) : (
-                      <div className="text-xs px-2 py-1.5 rounded border" style={{ background: '#faf5ff', color: '#a855f7', borderColor: '#ddd6fe' }}>
-                        No qarelease builds found
-                      </div>
+                      null
                     )}
                   </CardContent>
                 </Card>
@@ -759,30 +829,153 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       </div>
                     )}
                   </div>
-                  {qaReleaseBuilds[pipeline.id]?.buildNumber && buildNumberInput && (
-                    <div 
-                      className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all" 
-                      style={{ color: '#7c3aed' }}
-                      onClick={() => setInputValues(prev => ({
-                        ...prev,
-                        [pipeline.id]: {
-                          ...prev[pipeline.id],
-                          build_number: qaReleaseBuilds[pipeline.id]?.buildNumber || '',
-                        },
-                      }))}
-                      title="Click to use QA build number"
-                    >
-                      <GitBranch className="w-3 h-3" />
-                      <span>qa:</span>
-                      <code 
-                        className="px-1.5 py-0.5 rounded font-semibold" 
-                        style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
-                      >
-                        {qaReleaseBuilds[pipeline.id]?.buildNumber}
-                      </code>
+                  {buildNumberInput && (
+                    <div className="flex flex-col items-end gap-1">
+                      {latestBuilds[pipeline.id]?.loading ? (
+                        <div className="flex items-center gap-1 text-xs" style={{ color: '#9ca3af' }}>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          <span>Loading builds...</span>
+                        </div>
+                      ) : latestBuilds[pipeline.id]?.buildNumber ? (
+                        <>
+                          <div 
+                            className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all" 
+                            style={{ color: '#7c3aed' }}
+                            onClick={() => setInputValues(prev => ({
+                              ...prev,
+                              [pipeline.id]: {
+                                ...prev[pipeline.id],
+                                build_number: latestBuilds[pipeline.id]?.buildNumber || '',
+                              },
+                            }))}
+                            title={`Click to use latest build from ${pipeline.branch}`}
+                          >
+                            <GitBranch className="w-3 h-3" />
+                            <span>{pipeline.branch}:</span>
+                            <code 
+                              className="px-1.5 py-0.5 rounded font-semibold" 
+                              style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                            >
+                              {latestBuilds[pipeline.id]?.buildNumber}
+                            </code>
+                          </div>
+                          {allBuilds[pipeline.id]?.length > 1 && (
+                            <button
+                              type="button"
+                              className="text-xs hover:underline transition-all flex items-center gap-1"
+                              style={{ color: '#9ca3af' }}
+                              onClick={() => setShowAllBuilds(prev => ({
+                                ...prev,
+                                [pipeline.id]: !prev[pipeline.id]
+                              }))}
+                            >
+                              {showAllBuilds[pipeline.id] ? (
+                                <>
+                                  <ChevronUp className="w-3 h-3" />
+                                  <span>Hide</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3 h-3" />
+                                  <span>Show {allBuilds[pipeline.id].length - 1} more</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </>
+                      ) : null}
                     </div>
                   )}
                 </div>
+
+                {/* Last 5 Builds Dropdown */}
+                {showAllBuilds[pipeline.id] && allBuilds[pipeline.id]?.length > 1 && (
+                  <div className="mt-2 p-2 rounded-md border space-y-1.5" style={{ background: '#fafaf9', borderColor: '#e9d5ff' }}>
+                    <div className="text-xs font-semibold mb-1.5" style={{ color: '#6b21a8' }}>
+                      Last {allBuilds[pipeline.id].length} builds from {pipeline.branch}
+                    </div>
+                    {allBuilds[pipeline.id].slice(0, 5).map((build, index) => {
+                      const statusColor = build.conclusion === 'success' ? '#10b981' : 
+                                         build.conclusion === 'failure' ? '#ef4444' : 
+                                         build.status === 'in_progress' ? '#2563eb' : '#6b7280';
+                      const statusIcon = build.conclusion === 'success' ? CheckCircle2 : 
+                                        build.conclusion === 'failure' ? XCircle : 
+                                        build.status === 'in_progress' ? RefreshCw : Clock;
+                      const StatusIcon = statusIcon;
+                      
+                      return (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between p-2 rounded border cursor-pointer hover:border-purple-300 transition-all group"
+                          style={{ background: '#ffffff', borderColor: index === 0 ? '#c4b5fd' : '#e9d5ff' }}
+                          onClick={() => {
+                            if (buildNumberInput) {
+                              setInputValues(prev => ({
+                                ...prev,
+                                [pipeline.id]: {
+                                  ...prev[pipeline.id],
+                                  build_number: build.buildNumber || '',
+                                },
+                              }));
+                              setShowAllBuilds(prev => ({ ...prev, [pipeline.id]: false }));
+                            }
+                          }}
+                          title={`Click to use this build`}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <StatusIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: statusColor }} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <code 
+                                  className="px-1.5 py-0.5 rounded text-xs font-semibold" 
+                                  style={{ 
+                                    background: index === 0 ? 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)' : '#f3f4f6', 
+                                    color: index === 0 ? '#6b21a8' : '#4b5563' 
+                                  }}
+                                >
+                                  {build.buildNumber}
+                                </code>
+                                {index === 0 && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs px-1.5 py-0" 
+                                    style={{ background: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' }}
+                                  >
+                                    Latest
+                                  </Badge>
+                                )}
+                              </div>
+                              {build.commit && (
+                                <p className="text-xs mt-0.5 truncate" style={{ color: '#6b7280' }}>
+                                  {build.commit.sha} • {build.commit.message}
+                                </p>
+                              )}
+                              {build.createdAt && (
+                                <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                                  {new Date(build.createdAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {build.url && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(build.url, '_blank');
+                              }}
+                              title="View on GitHub"
+                            >
+                              <ExternalLink className="w-3 h-3" style={{ color: '#7c3aed' }} />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* All Workflow Inputs in Compact Grid */}
                 {allInputs.length > 0 && (
@@ -842,11 +1035,40 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                                   className="border-[#e5e7eb]"
                                   style={{ background: '#ffffff' }}
                                 >
-                                  {input.options.map(option => (
-                                    <SelectItem key={option} value={option}>
-                                      {option}
-                                    </SelectItem>
-                                  ))}
+                                  {input.options.map(option => {
+                                    const isDefault = pipeline.defaultInputValues?.[input.name] === option;
+                                    return (
+                                      <div 
+                                        key={option} 
+                                        className="flex items-center justify-between hover:bg-purple-50 group"
+                                        style={{ padding: '0' }}
+                                      >
+                                        <SelectItem 
+                                          value={option} 
+                                          className="flex-1 cursor-pointer"
+                                        >
+                                          {option}
+                                        </SelectItem>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleSaveDefaultValue(pipeline.id, input.name, option);
+                                          }}
+                                          className="flex-shrink-0 p-2 hover:bg-purple-100 transition-colors"
+                                          title={isDefault ? "Default value" : "Set as default"}
+                                          style={{ color: isDefault ? '#7c3aed' : '#d1d5db' }}
+                                        >
+                                          <Star 
+                                            className="w-3.5 h-3.5" 
+                                            fill={isDefault ? '#7c3aed' : 'none'}
+                                            strokeWidth={isDefault ? 2 : 1.5}
+                                          />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </SelectContent>
                               </Select>
                             ) : (
@@ -961,9 +1183,22 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                       <Clock className="w-5 h-5" style={{ color: '#7c3aed' }} />
                       <CardTitle style={{ color: '#6b21a8' }}>Deployment History</CardTitle>
                       {historyOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
+                      {deployments.length > 0 && (
+                        <Badge 
+                          variant="outline" 
+                          className="ml-1 text-xs px-2 py-0.5" 
+                          style={{ 
+                            background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', 
+                            color: '#6b21a8', 
+                            border: '2px solid #a78bfa' 
+                          }}
+                        >
+                          {deployments.length}
+                        </Badge>
+                      )}
                     </div>
                     <CardDescription style={{ color: '#7c3aed' }}>
-                      Recent deployments for all pipelines
+                      Last 5 deployments {deployments.length > 5 && `(${deployments.length} total)`}
                     </CardDescription>
                   </div>
                 </Button>
@@ -990,7 +1225,9 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
           ) : (
             <div className="space-y-4">
               {(() => {
-                const groups = groupDeployments(deployments);
+                // Show only the last 5 deployments
+                const recentDeployments = deployments.slice(0, 5);
+                const groups = groupDeployments(recentDeployments);
                 return Object.entries(groups).map(([groupKey, groupDeployments]) => {
                   const isGrouped = groupKey.startsWith('release-');
                   const globalRelease = isGrouped ? groupKey.replace('release-', '') : null;
@@ -1127,6 +1364,18 @@ export function DeploymentDashboard({ project, onBack }: DeploymentDashboardProp
                   }
                 });
               })()}
+              {deployments.length > 5 && (
+                <div className="mt-4 pt-4 border-t" style={{ borderColor: '#e9d5ff' }}>
+                  <div className="text-center">
+                    <p className="text-sm" style={{ color: '#7c3aed' }}>
+                      Showing 5 most recent deployments
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                      {deployments.length - 5} older deployment{deployments.length - 5 > 1 ? 's' : ''} not shown
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
             </CardContent>

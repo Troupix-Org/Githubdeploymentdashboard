@@ -9,6 +9,7 @@ export interface Pipeline {
   workflowFile: string;
   branch: string;
   repositoryId: string;
+  defaultInputValues?: Record<string, any>; // Default values for workflow inputs
 }
 
 export interface Repository {

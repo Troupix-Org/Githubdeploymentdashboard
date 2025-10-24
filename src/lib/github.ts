@@ -69,6 +69,11 @@ async function githubFetch(
     );
   }
 
+  // Handle 204 No Content responses (e.g., workflow dispatch)
+  if (response.status === 204) {
+    return null;
+  }
+
   return response.json();
 }
 
@@ -124,6 +129,66 @@ export async function getWorkflowRun(
   return await githubFetch(
     `/repos/${owner}/${repo}/actions/runs/${runId}`,
   );
+}
+
+export async function findTriggeredWorkflowRun(
+  owner: string,
+  repo: string,
+  workflowFile: string,
+  buildNumber: string,
+  branch: string,
+  maxRetries: number = 5,
+  delayMs: number = 2000,
+): Promise<number | null> {
+  // Try multiple times to find the run, as it may take a moment for GitHub to create it
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    try {
+      // Get recent runs for this workflow on the specified branch
+      const runs = await getWorkflowRuns(owner, repo, workflowFile, 20, branch);
+      
+      if (runs.length === 0) {
+        continue;
+      }
+
+      // Strategy 1: Try to find a run with the build number in its name
+      const runWithBuildNumber = runs.find(run => 
+        run.name && run.name.includes(buildNumber)
+      );
+      if (runWithBuildNumber) {
+        return runWithBuildNumber.id;
+      }
+
+      // Strategy 2: Find the most recent run that is queued or in_progress
+      // (created within the last 30 seconds to avoid picking up old runs)
+      const now = new Date().getTime();
+      const recentRuns = runs.filter(run => {
+        const createdAt = new Date(run.created_at).getTime();
+        const ageSeconds = (now - createdAt) / 1000;
+        return ageSeconds < 30 && (run.status === 'queued' || run.status === 'in_progress');
+      });
+
+      if (recentRuns.length > 0) {
+        // Return the most recently created one
+        const sortedByDate = recentRuns.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        return sortedByDate[0].id;
+      }
+
+      // Strategy 3: If this is our last attempt, take the most recent run
+      if (attempt === maxRetries - 1 && runs.length > 0) {
+        return runs[0].id;
+      }
+    } catch (err) {
+      console.error(`Attempt ${attempt + 1} to find workflow run failed:`, err);
+    }
+  }
+
+  return null;
 }
 
 export async function createRelease(
@@ -216,6 +281,72 @@ export async function getLatestBuildForBranch(
   } catch (err) {
     console.error('Failed to get latest build:', err);
     return null;
+  }
+}
+
+export async function getLatestBuildsForBranch(
+  owner: string,
+  repo: string,
+  workflowFile: string,
+  branch: string,
+  limit: number = 5,
+): Promise<Array<{
+  buildNumber?: string;
+  commit?: {
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+  };
+  status?: string;
+  conclusion?: string;
+  url?: string;
+  runId?: number;
+  createdAt?: string;
+}>> {
+  try {
+    const runs = await getWorkflowRuns(owner, repo, workflowFile, limit, branch);
+    if (runs.length === 0) {
+      return [];
+    }
+
+    const builds = await Promise.all(
+      runs.map(async (run) => {
+        try {
+          const commit = await getCommit(owner, repo, run.head_sha);
+          
+          return {
+            buildNumber: run.name,
+            commit: {
+              sha: run.head_sha.substring(0, 7),
+              message: commit.commit.message.split('\n')[0], // First line only
+              author: commit.commit.author.name,
+              date: commit.commit.author.date,
+            },
+            status: run.status,
+            conclusion: run.conclusion,
+            url: run.html_url,
+            runId: run.id,
+            createdAt: run.created_at,
+          };
+        } catch (err) {
+          console.error(`Failed to get commit for run ${run.id}:`, err);
+          return {
+            buildNumber: run.name,
+            status: run.status,
+            conclusion: run.conclusion,
+            url: run.html_url,
+            runId: run.id,
+            createdAt: run.created_at,
+          };
+        }
+      })
+    );
+
+    return builds;
+  } catch (err) {
+    console.error('Failed to get latest builds:', err);
+    return [];
   }
 }
 
