@@ -39,9 +39,55 @@ export interface Deployment {
   environment?: string; // The environment where this was deployed (qa, staging, prod, etc.)
   globalReleaseNumber?: string; // Global release number that encompasses all pipeline builds
   batchId?: string; // Groups deployments triggered together in the same session
+  productionReleaseId?: string; // Link to ProductionRelease if part of production release process
   status: 'pending' | 'in_progress' | 'success' | 'failure';
   workflowRunId?: number;
   startedAt: number;
+  completedAt?: number;
+}
+
+export interface ProductionReleaseStep {
+  stepId: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  completedAt?: number;
+  completedBy?: string;
+  notes?: string;
+  metadata?: Record<string, any>; // For storing step-specific data (emails sent, sign-offs, etc.)
+}
+
+export interface ProductionRelease {
+  id: string;
+  releaseNumber: string; // e.g., "2025.10.1" or custom format
+  projectId: string;
+  createdAt: number;
+  createdBy?: string;
+  status: 'draft' | 'in_progress' | 'completed' | 'cancelled';
+  steps: ProductionReleaseStep[]; // State of the 8 steps
+  deploymentIds: string[]; // Associated deployment IDs
+  stagingDeploymentIds?: string[]; // Specific staging deployments
+  productionDeploymentIds?: string[]; // Specific production deployments
+  qaSignOff?: {
+    testerName: string;
+    testDate: string;
+    testEnvironment: 'staging' | 'production';
+    testsPassed: boolean;
+    comments: string;
+  };
+  poSignOff?: {
+    ownerName: string;
+    approvalDate: string;
+    comments: string;
+  };
+  complianceFile?: {
+    fileName: string;
+    fileContent: string;
+    uploadDate: string;
+  };
+  emailRecipients?: {
+    staging?: string;
+    production?: string;
+  };
+  notes?: string;
   completedAt?: number;
 }
 
@@ -251,4 +297,92 @@ export function downloadProjectAsJson(project: Project): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+// Production Releases storage (localStorage for POC)
+const PRODUCTION_RELEASES_KEY = 'production_releases';
+
+export function getProductionReleases(): ProductionRelease[] {
+  const data = localStorage.getItem(PRODUCTION_RELEASES_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+export function saveProductionRelease(release: ProductionRelease): void {
+  const releases = getProductionReleases();
+  const index = releases.findIndex(r => r.id === release.id);
+  
+  if (index >= 0) {
+    releases[index] = release;
+  } else {
+    releases.push(release);
+  }
+  
+  localStorage.setItem(PRODUCTION_RELEASES_KEY, JSON.stringify(releases));
+}
+
+export function getProductionReleaseById(id: string): ProductionRelease | undefined {
+  return getProductionReleases().find(r => r.id === id);
+}
+
+export function getProductionReleasesByProject(projectId: string): ProductionRelease[] {
+  return getProductionReleases().filter(r => r.projectId === projectId);
+}
+
+export function deleteProductionRelease(id: string): void {
+  const releases = getProductionReleases();
+  const filtered = releases.filter(r => r.id !== id);
+  localStorage.setItem(PRODUCTION_RELEASES_KEY, JSON.stringify(filtered));
+}
+
+export function generateReleaseNumber(projectId: string): string {
+  const releases = getProductionReleasesByProject(projectId);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  
+  // Find releases from the current month
+  const prefix = `${year}.${month}`;
+  const currentMonthReleases = releases.filter(r => 
+    r.releaseNumber.startsWith(prefix)
+  );
+  
+  // Extract the sequence number and find the max
+  let maxSequence = 0;
+  currentMonthReleases.forEach(r => {
+    const parts = r.releaseNumber.split('.');
+    if (parts.length >= 3) {
+      const seq = parseInt(parts[2], 10);
+      if (!isNaN(seq) && seq > maxSequence) {
+        maxSequence = seq;
+      }
+    }
+  });
+  
+  return `${prefix}.${maxSequence + 1}`;
+}
+
+export function createProductionRelease(projectId: string, customReleaseNumber?: string): ProductionRelease {
+  const releaseNumber = customReleaseNumber || generateReleaseNumber(projectId);
+  
+  const release: ProductionRelease = {
+    id: `prod_release_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+    releaseNumber,
+    projectId,
+    createdAt: Date.now(),
+    status: 'draft',
+    steps: [
+      { stepId: 1, status: 'pending' },
+      { stepId: 2, status: 'pending' },
+      { stepId: 3, status: 'pending' },
+      { stepId: 4, status: 'pending' },
+      { stepId: 5, status: 'pending' },
+      { stepId: 6, status: 'pending' },
+      { stepId: 7, status: 'pending' },
+      { stepId: 8, status: 'pending' },
+    ],
+    deploymentIds: [],
+  };
+  
+  saveProductionRelease(release);
+  return release;
 }

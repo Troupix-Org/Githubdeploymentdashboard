@@ -13,6 +13,9 @@ A web application to manage and trigger GitHub Actions deployments with ease. Co
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get started in 5 minutes
 - **[Features Documentation](FEATURES.md)** - Detailed feature descriptions
+- **[Production Release Process](PRODUCTION_RELEASE_PROCESS.md)** - 8-step production workflow
+- **[Production Release Quick Start](PRODUCTION_RELEASE_QUICKSTART.md)** - Quick guide for production releases
+- **[Production Release Visual Guide](PRODUCTION_RELEASE_VISUAL_GUIDE.md)** - Visual workflow diagrams
 - **[Deployment Guide](DEPLOYMENT.md)** - Deploy to GitHub Pages
 - **[Contributing](CONTRIBUTING.md)** - How to contribute
 - **[Security Policy](SECURITY.md)** - Security guidelines and best practices
@@ -24,6 +27,7 @@ A web application to manage and trigger GitHub Actions deployments with ease. Co
 - 📊 **Real-time Status Tracking** - Monitor deployments grouped by session with live updates
 - 🔄 **Dynamic Workflow Integration** - Automatically detects and adapts to your GitHub Actions workflow inputs
 - 🏷️ **Release Management** - Create GitHub releases with custom release notes
+- 🏭 **Production Release Process** - 8-step workflow with QA sign-offs, PO approvals, and compliance tracking
 - 💾 **Project Import/Export** - Save and share project configurations via JSON
 - 🔐 **Secure Token Storage** - GitHub token stored locally in browser (localStorage + IndexedDB)
 
@@ -131,6 +135,48 @@ When clicking "Deploy All", you'll see a comprehensive confirmation dialog showi
 - **Real-time Progress** - Live deployment progress with X/Y counter
 
 The confirmation dialog helps prevent accidental deployments by requiring explicit review before proceeding.
+
+## Production Release Process
+
+For projects requiring formal production deployment procedures, enable the **Production Release** flag when creating or editing a project. This activates an 8-step guided workflow:
+
+### Process Overview
+
+```
+Step 1: ✓ Deploy to Staging (Pre-requisite)
+Step 2: ✉️ Notify QA - Staging Ready
+Step 3: ✅ QA Sign-off
+Step 4: ✉️ Notify Stakeholders + Compliance File
+Step 5: ✅ Product Owner Sign-off
+Step 6: 🚀 Deploy to Production
+Step 7: ✉️ Notify QA - Production Complete
+Step 8: 📝 Create GitHub Release
+```
+
+### Key Features
+
+- **Sequential Execution** - Steps must be completed in order
+- **Sign-off Gates** - QA and PO approvals required before production
+- **Compliance Tracking** - Upload and store QA compliance documentation
+- **Email Templates** - Pre-filled templates for stakeholder communication
+- **Progress Tracking** - Visual progress bar and status indicators
+- **Data Persistence** - All sign-offs and files stored locally
+- **Stored Information Display** - View approval details for completed steps
+
+### Quick Actions
+
+Each step type has specific actions:
+
+- **Email Steps (2, 4, 7)**: Compose email → Copy to clipboard → Send → Mark as sent
+- **Approval Gates (3, 5)**: Enter approver details → Add comments → Sign off
+- **Deployment (6)**: Trigger production pipelines → Monitor status
+- **Release (8)**: Select repository → Create release with notes
+
+### Documentation
+
+- See [Production Release Process](PRODUCTION_RELEASE_PROCESS.md) for full documentation
+- See [Production Release Quick Start](PRODUCTION_RELEASE_QUICKSTART.md) for quick guide
+- See [Production Release Visual Guide](PRODUCTION_RELEASE_VISUAL_GUIDE.md) for visual diagrams
 
 ## Architecture
 
