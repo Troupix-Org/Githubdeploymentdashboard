@@ -74,7 +74,6 @@ export function ProductionReleaseTabs({
   const [loadingPipelines, setLoadingPipelines] = useState<{ [pipelineId: string]: boolean }>({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [globalReleaseNumber, setGlobalReleaseNumber] = useState('');
   const [workflowInputs, setWorkflowInputs] = useState<{ [pipelineId: string]: WorkflowInput[] }>({});
   const [inputValues, setInputValues] = useState<{ [pipelineId: string]: Record<string, any> }>({});
   const [deployOpen, setDeployOpen] = useState(true);
@@ -256,7 +255,6 @@ export function ProductionReleaseTabs({
         buildNumber,
         branch: pipeline.branch,
         environment: pipeline.environment,
-        globalReleaseNumber: globalReleaseNumber || undefined,
         batchId,
         productionReleaseId: releaseId,
         status: 'pending',
@@ -536,28 +534,6 @@ export function ProductionReleaseTabs({
                   </CardHeader>
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
-                      {/* Global Release Number */}
-                      <div className="p-3 rounded-lg border-2 space-y-2" style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)', borderColor: '#7c3aed' }}>
-                        <Label htmlFor={`global-release-${release.id}`} style={{ color: '#6b21a8' }} className="flex items-center gap-2 font-semibold">
-                          <span>Global Release Number (Optional)</span>
-                          <Badge variant="outline" className="text-xs" style={{ color: '#7c3aed', background: '#ffffff', borderColor: '#a78bfa' }}>
-                            Applies to all deployments
-                          </Badge>
-                        </Label>
-                        <Input
-                          id={`global-release-${release.id}`}
-                          type="text"
-                          placeholder="e.g., 5.28"
-                          value={globalReleaseNumber}
-                          onChange={(e) => setGlobalReleaseNumber(e.target.value)}
-                          className="border-[#d1d5db] h-9"
-                          style={{ background: '#ffffff', color: '#1f2937' }}
-                        />
-                        <p className="text-xs" style={{ color: '#6b7280' }}>
-                          This global release number will encompass all pipeline builds (e.g., Release 5.28 contains rules 5.28.295.1, etc.)
-                        </p>
-                      </div>
-
                       {/* Pipeline Rows */}
                       {project.pipelines.map(pipeline => {
                         const repo = project.repositories.find(r => r.id === pipeline.repositoryId);

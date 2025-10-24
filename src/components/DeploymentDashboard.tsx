@@ -78,7 +78,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   const [selectedPipelines, setSelectedPipelines] = useState<string[]>([]);
   const [deployProgress, setDeployProgress] = useState({ current: 0, total: 0 });
   const [isDeploying, setIsDeploying] = useState(false);
-  const [globalReleaseNumber, setGlobalReleaseNumber] = useState('');
   const [editingSelection, setEditingSelection] = useState(false);
 
   // Workflow inputs states
@@ -441,7 +440,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
         buildNumber,
         branch: pipeline.branch,
         environment: pipeline.environment,
-        globalReleaseNumber: globalReleaseNumber || undefined,
         batchId,
         productionReleaseId: currentProductionReleaseId || undefined,
         status: 'pending',
@@ -546,7 +544,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           buildNumber,
           branch: pipeline.branch,
           environment: pipeline.environment,
-          globalReleaseNumber: globalReleaseNumber || undefined,
           batchId,
           productionReleaseId: currentProductionReleaseId || undefined,
           status: 'pending',
@@ -790,28 +787,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           </CardHeader>
           <CollapsibleContent>
             <CardContent className="space-y-4">
-          {/* Global Release Number */}
-          <div className="p-3 rounded-lg border-2 space-y-2" style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%)', borderColor: '#7c3aed' }}>
-            <Label htmlFor="global-release" style={{ color: '#6b21a8' }} className="flex items-center gap-2 font-semibold">
-              <span>Global Release Number (Optional)</span>
-              <Badge variant="outline" className="text-xs" style={{ color: '#7c3aed', background: '#ffffff', borderColor: '#a78bfa' }}>
-                Applies to all deployments
-              </Badge>
-            </Label>
-            <Input
-              id="global-release"
-              type="text"
-              placeholder="e.g., 5.28"
-              value={globalReleaseNumber}
-              onChange={(e) => setGlobalReleaseNumber(e.target.value)}
-              className="border-[#d1d5db] h-9"
-              style={{ background: '#ffffff', color: '#1f2937' }}
-            />
-            <p className="text-xs" style={{ color: '#6b7280' }}>
-              This global release number will encompass all pipeline builds (e.g., Release 5.28 contains rules 5.28.295.1, etc.)
-            </p>
-          </div>
-
           {/* Pipeline Rows */}
           {project.pipelines.map(pipeline => {
             const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
@@ -1388,19 +1363,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           </AlertDialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Global Release Number */}
-            {globalReleaseNumber && (
-              <div className="p-3 rounded-lg border-2" style={{ background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', borderColor: '#f59e0b' }}>
-                <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5" style={{ color: '#92400e' }} />
-                  <div>
-                    <div className="font-semibold" style={{ color: '#92400e' }}>Global Release Number</div>
-                    <div className="text-sm" style={{ color: '#78350f' }}>{globalReleaseNumber}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Deployment Summary Table */}
             <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
               <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
