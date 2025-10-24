@@ -49,7 +49,6 @@ import {
 } from './ui/alert-dialog';
 import { Checkbox } from './ui/checkbox';
 import { Progress } from './ui/progress';
-import { ReleaseCreator } from './ReleaseCreator';
 import {
   Select,
   SelectContent,
@@ -69,8 +68,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   const [loadingPipelines, setLoadingPipelines] = useState<{ [pipelineId: string]: boolean }>({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showReleaseDialog, setShowReleaseDialog] = useState(false);
-  const [selectedRepoForRelease, setSelectedRepoForRelease] = useState(project.repositories[0]?.id || '');
 
   
   // Deploy All Dialog states
@@ -670,33 +667,24 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="hover:bg-slate-700" style={{ color: '#e9d5ff' }}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl" style={{ color: '#e9d5ff' }}>{project.name}</h2>
-              {project.isProductionRelease && (
-                <Badge className="text-white px-2 py-0.5" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}>
-                  PRODUCTION
-                </Badge>
-              )}
-            </div>
-            <p style={{ color: '#cbd5e1' }}>
-              {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
-            </p>
-          </div>
-        </div>
-        <Button
-          onClick={() => setShowReleaseDialog(true)}
-          className="text-white"
-          style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
-        >
-          Create Release
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" onClick={onBack} className="hover:bg-slate-700" style={{ color: '#e9d5ff' }}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
         </Button>
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl" style={{ color: '#e9d5ff' }}>{project.name}</h2>
+            {project.isProductionRelease && (
+              <Badge className="text-white px-2 py-0.5" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}>
+                PRODUCTION
+              </Badge>
+            )}
+          </div>
+          <p style={{ color: '#cbd5e1' }}>
+            {project.repositories.length} repositor{project.repositories.length !== 1 ? 'ies' : 'y'}
+          </p>
+        </div>
       </div>
 
       {/* Production Release Process - Show tabs for production projects, otherwise show single process */}
@@ -733,12 +721,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           setShowDeployAllDialog(true);
         };
 
-        const handleCreateRelease = (repository: Repository) => {
-          // Set the selected repository and open release dialog
-          setSelectedRepoForRelease(repository.id);
-          setShowReleaseDialog(true);
-        };
-        
         // If this is a production project, show tabs
         if (project.isProductionRelease) {
           return (
@@ -746,7 +728,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
               project={project}
               deployments={deployments}
               onDeployToProduction={handleDeployToProduction}
-              onCreateRelease={handleCreateRelease}
               onProjectUpdate={setProject}
             />
           );
@@ -758,7 +739,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
             project={project}
             deployments={deployments}
             onDeployToProduction={() => handleDeployToProduction()}
-            onCreateRelease={handleCreateRelease}
           />
         );
       })()}
@@ -1300,54 +1280,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
         </Card>
       </Collapsible>
       )}
-
-      <Dialog open={showReleaseDialog} onOpenChange={setShowReleaseDialog}>
-        <DialogContent
-          className="max-w-2xl border-[#e5e7eb]"
-          style={{ background: '#ffffff' }}
-        >
-          <DialogHeader>
-            <DialogTitle style={{ color: '#1f2937' }}>Create GitHub Release</DialogTitle>
-            <DialogDescription style={{ color: '#6b7280' }}>
-              Create a new release for your repository
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label style={{ color: '#374151' }}>Repository</Label>
-              <Select
-                value={selectedRepoForRelease}
-                onValueChange={(value) => setSelectedRepoForRelease(value)}
-              >
-                <SelectTrigger
-                  className="border-[#d1d5db]"
-                  style={{ background: '#f9fafb', color: '#1f2937' }}
-                >
-                  <SelectValue placeholder="Select repository" />
-                </SelectTrigger>
-                <SelectContent
-                  className="border-[#e5e7eb]"
-                  style={{ background: '#ffffff' }}
-                >
-                  {project.repositories.map((repo) => (
-                    <SelectItem key={repo.id} value={repo.id}>
-                      {repo.name} ({repo.owner}/{repo.repo})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <ReleaseCreator
-              repository={project.repositories.find(r => r.id === selectedRepoForRelease)}
-              onSuccess={() => {
-                setShowReleaseDialog(false);
-                setSuccess('Release created successfully!');
-              }}
-              onCancel={() => setShowReleaseDialog(false)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Deploy All Confirmation Dialog */}
       <AlertDialog open={showDeployAllDialog} onOpenChange={setShowDeployAllDialog}>

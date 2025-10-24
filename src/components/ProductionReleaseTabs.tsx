@@ -49,7 +49,7 @@ interface ProductionReleaseTabsProps {
   project: Project;
   deployments: Deployment[];
   onDeployToProduction: (releaseId: string) => void;
-  onCreateRelease: (repository: Repository) => void;
+  onCreateRelease?: (repository: Repository) => void;
   onProjectUpdate?: (project: Project) => void;
 }
 

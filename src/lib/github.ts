@@ -468,3 +468,23 @@ export async function getWorkflowInputs(
     return [];
   }
 }
+
+export interface GitHubTag {
+  name: string;
+  commit: {
+    sha: string;
+    url: string;
+  };
+  zipball_url: string;
+  tarball_url: string;
+}
+
+export async function listTags(
+  owner: string,
+  repo: string,
+  limit: number = 100,
+): Promise<GitHubTag[]> {
+  return await githubFetch(
+    `/repos/${owner}/${repo}/tags?per_page=${limit}`,
+  );
+}

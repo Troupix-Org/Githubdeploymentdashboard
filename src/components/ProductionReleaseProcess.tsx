@@ -55,13 +55,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import { ReleaseCreator } from './ReleaseCreator';
 
 interface ProductionReleaseProcessProps {
   project: Project;
   deployments: Deployment[];
   currentRelease?: ProductionRelease | null;
   onDeployToProduction: () => void;
-  onCreateRelease: (repository: Repository) => void;
+  onCreateRelease?: (repository: Repository) => void;
   onReleaseUpdated?: () => void;
 }
 
@@ -283,7 +284,14 @@ export function ProductionReleaseProcess({
       return step;
     });
 
-    updateCurrentRelease({ steps: updatedSteps });
+    // Check if all steps are now completed
+    const allStepsCompleted = updatedSteps.every(step => step.status === 'completed');
+    
+    updateCurrentRelease({ 
+      steps: updatedSteps,
+      status: allStepsCompleted ? 'completed' : 'in_progress',
+      completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
+    });
   };
 
   const updateSteps = () => {
@@ -552,12 +560,30 @@ Deployment Team`
 
   const handleStagingEmailSent = () => {
     if (currentRelease) {
-      updateReleaseStep(2, 'completed', { emailSent: true, recipients: stagingEmailRecipients });
+      // Update step status and email recipients in a single update
+      const updatedSteps = currentRelease.steps.map(step => {
+        if (step.stepId === 2) {
+          return {
+            ...step,
+            status: 'completed' as const,
+            completedAt: Date.now(),
+            metadata: { ...step.metadata, emailSent: true, recipients: stagingEmailRecipients },
+          };
+        }
+        return step;
+      });
+
+      // Check if all steps are now completed
+      const allStepsCompleted = updatedSteps.every(step => step.status === 'completed');
+
       updateCurrentRelease({
+        steps: updatedSteps,
         emailRecipients: {
           ...currentRelease.emailRecipients,
           staging: stagingEmailRecipients,
         },
+        status: allStepsCompleted ? 'completed' : 'in_progress',
+        completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
       });
     } else {
       saveToStorage('staging_email_sent', true);
@@ -575,8 +601,27 @@ Deployment Team`
       return;
     }
     if (currentRelease) {
-      updateReleaseStep(3, 'completed');
-      updateCurrentRelease({ qaSignOff });
+      // Update step status and QA sign-off in a single update
+      const updatedSteps = currentRelease.steps.map(step => {
+        if (step.stepId === 3) {
+          return {
+            ...step,
+            status: 'completed' as const,
+            completedAt: Date.now(),
+          };
+        }
+        return step;
+      });
+
+      // Check if all steps are now completed
+      const allStepsCompleted = updatedSteps.every(step => step.status === 'completed');
+
+      updateCurrentRelease({
+        steps: updatedSteps,
+        qaSignOff,
+        status: allStepsCompleted ? 'completed' : 'in_progress',
+        completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
+      });
     } else {
       saveToStorage('qa_signoff', qaSignOff);
       updateSteps();
@@ -625,12 +670,30 @@ Deployment Team`
       return;
     }
     if (currentRelease) {
-      updateReleaseStep(4, 'completed', { emailSent: true, recipients: prodEmailRecipients });
+      // Update step status and email recipients in a single update
+      const updatedSteps = currentRelease.steps.map(step => {
+        if (step.stepId === 4) {
+          return {
+            ...step,
+            status: 'completed' as const,
+            completedAt: Date.now(),
+            metadata: { ...step.metadata, emailSent: true, recipients: prodEmailRecipients },
+          };
+        }
+        return step;
+      });
+
+      // Check if all steps are now completed
+      const allStepsCompleted = updatedSteps.every(step => step.status === 'completed');
+
       updateCurrentRelease({
+        steps: updatedSteps,
         emailRecipients: {
           ...currentRelease.emailRecipients,
           production: prodEmailRecipients,
         },
+        status: allStepsCompleted ? 'completed' : 'in_progress',
+        completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
       });
     } else {
       saveToStorage('prod_email_sent', true);
@@ -648,8 +711,27 @@ Deployment Team`
       return;
     }
     if (currentRelease) {
-      updateReleaseStep(5, 'completed');
-      updateCurrentRelease({ poSignOff });
+      // Update step status and PO sign-off in a single update
+      const updatedSteps = currentRelease.steps.map(step => {
+        if (step.stepId === 5) {
+          return {
+            ...step,
+            status: 'completed' as const,
+            completedAt: Date.now(),
+          };
+        }
+        return step;
+      });
+
+      // Check if all steps are now completed
+      const allStepsCompleted = updatedSteps.every(step => step.status === 'completed');
+
+      updateCurrentRelease({
+        steps: updatedSteps,
+        poSignOff,
+        status: allStepsCompleted ? 'completed' : 'in_progress',
+        completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
+      });
     } else {
       saveToStorage('po_signoff', poSignOff);
       updateSteps();
@@ -659,7 +741,27 @@ Deployment Team`
 
   const handleProdCompleteEmailSent = () => {
     if (currentRelease) {
-      updateReleaseStep(7, 'completed', { emailSent: true });
+      // Update step status in a single update
+      const updatedSteps = currentRelease.steps.map(step => {
+        if (step.stepId === 7) {
+          return {
+            ...step,
+            status: 'completed' as const,
+            completedAt: Date.now(),
+            metadata: { ...step.metadata, emailSent: true },
+          };
+        }
+        return step;
+      });
+
+      // Check if all steps are now completed
+      const allStepsCompleted = updatedSteps.every(step => step.status === 'completed');
+
+      updateCurrentRelease({
+        steps: updatedSteps,
+        status: allStepsCompleted ? 'completed' : 'in_progress',
+        completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
+      });
     } else {
       saveToStorage('prod_complete_email_sent', true);
       updateSteps();
@@ -714,6 +816,9 @@ Deployment Team`
       localStorage.removeItem(`${STORAGE_PREFIX}prod_email_sent`);
       localStorage.removeItem(`${STORAGE_PREFIX}prod_complete_email_sent`);
       localStorage.removeItem(`${STORAGE_PREFIX}email_recipients`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_1_completed`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_6_completed`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_8_completed`);
       
       setQaSignOff({
         testerName: '',
@@ -731,7 +836,63 @@ Deployment Team`
       setStagingEmailRecipients('');
       setProdEmailRecipients('');
       
+      // Reset release to draft if it exists
+      if (currentRelease) {
+        const resetSteps = currentRelease.steps.map(step => ({
+          stepId: step.stepId,
+          status: 'pending' as const,
+          completedAt: undefined,
+          metadata: undefined,
+        }));
+        
+        updateCurrentRelease({
+          steps: resetSteps,
+          status: 'draft',
+          completedAt: undefined,
+        });
+      }
+      
       updateSteps();
+    }
+  };
+
+  const markAllComplete = () => {
+    if (confirm('Are you sure you want to mark all steps as complete? This will bypass the entire production release process.')) {
+      if (currentRelease) {
+        // Mark all steps as completed in the release
+        const completedSteps = currentRelease.steps.map(step => ({
+          ...step,
+          status: 'completed' as const,
+          completedAt: Date.now(),
+        }));
+        
+        updateCurrentRelease({
+          steps: completedSteps,
+          status: 'completed',
+          completedAt: Date.now(),
+        });
+      } else {
+        // Fallback to localStorage
+        saveToStorage('step_1_completed', true);
+        saveToStorage('staging_email_sent', true);
+        saveToStorage('qa_signoff', {
+          testerName: 'Bypassed',
+          testDate: new Date().toISOString().split('T')[0],
+          testEnvironment: 'staging',
+          testsPassed: true,
+          comments: 'Manually bypassed',
+        });
+        saveToStorage('prod_email_sent', true);
+        saveToStorage('po_signoff', {
+          ownerName: 'Bypassed',
+          approvalDate: new Date().toISOString().split('T')[0],
+          comments: 'Manually bypassed',
+        });
+        saveToStorage('step_6_completed', true);
+        saveToStorage('prod_complete_email_sent', true);
+        saveToStorage('step_8_completed', true);
+        updateSteps();
+      }
     }
   };
 
@@ -759,16 +920,35 @@ Deployment Team`
                 <Badge className="text-white px-4 py-1" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}>
                   PRODUCTION
                 </Badge>
+                {currentRelease?.status === 'completed' && (
+                  <Badge className="text-white px-3 py-1" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    COMPLETED
+                  </Badge>
+                )}
                 {isOpen && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={resetProcess}
-                    className="text-xs"
-                    style={{ borderColor: '#e9d5ff', color: '#7c3aed' }}
-                  >
-                    Reset Process
-                  </Button>
+                  <>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={markAllComplete}
+                      className="text-xs text-white"
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }}
+                      disabled={currentRelease?.status === 'completed'}
+                    >
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Mark All Complete
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={resetProcess}
+                      className="text-xs"
+                      style={{ borderColor: '#e9d5ff', color: '#7c3aed' }}
+                    >
+                      Reset Process
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -1416,13 +1596,13 @@ Deployment Team`
               Create GitHub Release
             </DialogTitle>
             <DialogDescription style={{ color: '#6b7280' }}>
-              Generate release with release notes for the selected repository
+              Create a new release for your repository with tags and release notes
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label style={{ color: '#374151' }}>Select Repository *</Label>
+              <Label style={{ color: '#374151' }}>Repository</Label>
               <Select value={selectedRepository} onValueChange={setSelectedRepository}>
                 <SelectTrigger style={{ borderColor: '#d1d5db' }}>
                   <SelectValue placeholder="Choose a repository" />
@@ -1437,38 +1617,23 @@ Deployment Team`
               </Select>
             </div>
 
-            <Alert className="border-blue-200 bg-blue-50">
-              <AlertCircle className="h-4 w-4" style={{ color: '#2563eb' }} />
-              <AlertDescription className="text-xs" style={{ color: '#1e40af' }}>
-                The release creator will open with pre-filled information from the deployment.
-              </AlertDescription>
-            </Alert>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setReleaseDialog(false)}
-              style={{ color: '#374151' }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                const repo = project.repositories.find(r => r.id === selectedRepository);
-                if (repo) {
-                  onCreateRelease(repo);
+            {selectedRepository && (
+              <ReleaseCreator
+                repository={project.repositories.find(r => r.id === selectedRepository)}
+                onSuccess={() => {
+                  // Mark step 8 as completed
+                  if (currentRelease) {
+                    updateReleaseStep(8, 'completed');
+                  } else {
+                    saveToStorage('step_8_completed', true);
+                    updateSteps();
+                  }
                   setReleaseDialog(false);
-                }
-              }}
-              className="text-white"
-              style={{ background: '#7c3aed' }}
-              disabled={!selectedRepository}
-            >
-              <FileCheck className="w-4 h-4 mr-2" />
-              Create Release
-            </Button>
-          </DialogFooter>
+                }}
+                onCancel={() => setReleaseDialog(false)}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
