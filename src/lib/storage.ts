@@ -152,6 +152,18 @@ export function getDeploymentsByProject(projectId: string): Deployment[] {
   return getDeployments().filter(d => d.projectId === projectId);
 }
 
+export function deleteDeployment(deploymentId: string): void {
+  const deployments = getDeployments();
+  const filtered = deployments.filter(d => d.id !== deploymentId);
+  localStorage.setItem(DEPLOYMENTS_KEY, JSON.stringify(filtered));
+}
+
+export function deleteDeploymentsByBatch(batchId: string): void {
+  const deployments = getDeployments();
+  const filtered = deployments.filter(d => d.batchId !== batchId);
+  localStorage.setItem(DEPLOYMENTS_KEY, JSON.stringify(filtered));
+}
+
 // Project Import/Export
 export function exportProject(project: Project): string {
   // Create a clean export without deployments
