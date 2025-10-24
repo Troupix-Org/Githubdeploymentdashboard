@@ -554,7 +554,11 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     if (selectedPipelines.length === project.pipelines.length) {
       setSelectedPipelines([]);
     } else {
-      setSelectedPipelines(project.pipelines.map(p => p.id));
+      // Only select pipelines that have build numbers
+      const pipelinesWithBuildNumbers = project.pipelines.filter(p => 
+        inputValues[p.id]?.build_number || buildNumbers[p.id]
+      );
+      setSelectedPipelines(pipelinesWithBuildNumbers.map(p => p.id));
     }
   };
 
