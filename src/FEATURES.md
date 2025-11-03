@@ -243,7 +243,190 @@ Information shown:
 
 ---
 
-### 9. Release Creation
+### 9. Production Release Process
+
+**Enterprise-Grade Production Workflow**
+
+Overview:
+- 8-step guided production deployment process
+- Sequential execution with approval gates
+- QA and Product Owner sign-offs required
+- Compliance documentation tracking
+- Email template generation
+- Progress tracking and visualization
+
+**Step 1: Deploy to Staging**
+- Pre-requisite validation
+- Automatic detection of staging deployments
+- Status check for successful staging completion
+- No manual action required
+
+**Step 2: Notify QA - Staging Ready**
+- Email template generation
+- Recipient management (comma-separated emails)
+- Customizable email content
+- Copy to clipboard functionality
+- "Mark as Sent" confirmation
+- Template includes:
+  - Project name and release number
+  - List of deployed pipelines
+  - Staging environment details
+  - Request for testing and sign-off
+
+**Step 3: QA Sign-off**
+- Approval gate requiring QA validation
+- Form fields:
+  - Tester name (required)
+  - Test date (required)
+  - Test environment (staging/production)
+  - All tests passed checkbox (required)
+  - Comments (optional)
+- Data persistence in localStorage
+- Displayed in completed step view
+- Blocks progression until approved
+
+**Step 4: Notify - Start Production Release**
+- Email template with QA approval info
+- Compliance file upload:
+  - Accepted formats: .txt, .pdf, .doc, .docx, .md
+  - File stored locally
+  - Download capability
+  - Upload date tracking
+- Recipient management
+- Email includes:
+  - Release number
+  - QA sign-off details
+  - Compliance documentation reference
+  - Production pipeline list
+- Copy to clipboard
+- "Mark as Sent" confirmation
+
+**Step 5: Product Owner Sign-off**
+- Final approval gate before production
+- Form fields:
+  - Product Owner name (required)
+  - Approval date (required)
+  - Comments/conditions (optional)
+- Authorization warning
+- Data persistence
+- Displayed in completed step view
+- Blocks deployment until approved
+
+**Step 6: Deploy to Production**
+- One-click production deployment trigger
+- Automatic selection of production pipelines
+- Opens deployment dialog
+- Real-time status monitoring
+- Intelligent auto-refresh (10-30s intervals)
+- Progress tracking
+- Status updates in step indicator
+
+**Step 7: Notify QA - Production Complete**
+- Post-deployment QA notification
+- Email template generation
+- Includes:
+  - Deployment completion confirmation
+  - Production pipeline list
+  - Request for verification testing
+- Copy to clipboard
+- "Mark as Sent" confirmation
+
+**Step 8: Create GitHub Release**
+- Release creation integration
+- Repository selection
+- Opens release creator
+- Pre-filled with deployment information
+- Full markdown support for release notes
+- Direct GitHub publishing
+
+**Visual Features:**
+
+Progress Tracking:
+- Overall progress bar (0-100%)
+- Step count display (e.g., "5 of 8 completed")
+- Color-coded step icons:
+  - ⚪ Pending - Gray
+  - 🟣 In Progress - Purple
+  - 🟢 Completed - Green
+- Current step highlighting
+
+Collapsed View:
+- All 8 steps visible at once
+- Step icons and titles
+- Progress bar
+- Quick status overview
+- PRODUCTION badge
+
+Expanded View:
+- Detailed step information
+- Action buttons for executable steps
+- Stored data display for completed steps:
+  - QA sign-off details
+  - PO approval information
+  - Compliance file info with download
+  - Email recipients
+- Warning messages for blocked steps
+- Reset Process button
+
+**Data Management:**
+
+Persistence:
+- All data stored in localStorage
+- Project-specific storage keys
+- Sign-offs, compliance files, email records
+- Survives page refresh
+
+Storage Keys:
+- `prod_release_{projectId}_qa_signoff`
+- `prod_release_{projectId}_po_signoff`
+- `prod_release_{projectId}_compliance_file`
+- `prod_release_{projectId}_staging_email_sent`
+- `prod_release_{projectId}_prod_email_sent`
+- `prod_release_{projectId}_prod_complete_email_sent`
+- `prod_release_{projectId}_email_recipients`
+
+Reset Functionality:
+- "Reset Process" button
+- Clears all stored data
+- Confirmation dialog (irreversible)
+- Fresh start for new release
+
+**Activation:**
+
+Project Configuration:
+- "Production Release" checkbox in project setup
+- Activates 8-step workflow
+- Shown only for projects with production pipelines
+- Automatic detection of production environments
+
+Pipeline Requirements:
+- At least one pipeline with environment containing "prod" or "production"
+- Staging pipelines detected by "staging", "stg", or "qa"
+- Environment labels drive step logic
+
+**Integration:**
+
+DeploymentDashboard:
+- Positioned after Deployment Status section
+- Collapsible card interface
+- Seamless integration with existing deployment features
+- Production deployment trigger from step 6
+- Release creation from step 8
+
+Sequential Validation:
+- Each step can only execute when previous steps completed
+- Clear error messages for blocked steps
+- Visual indicators for executable steps
+- Progress-based flow control
+
+**Documentation:**
+- [Full Process Guide](PRODUCTION_RELEASE_PROCESS.md)
+- [Quick Start](PRODUCTION_RELEASE_QUICKSTART.md)
+- [Visual Guide](PRODUCTION_RELEASE_VISUAL_GUIDE.md)
+
+---
+
+### 10. Release Creation
 
 **GitHub Release Features**
 
@@ -276,7 +459,7 @@ Result:
 
 ---
 
-### 10. Collapsible Sections
+### 11. Collapsible Sections
 
 **Space Management**
 
