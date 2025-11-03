@@ -458,7 +458,8 @@ export async function getWorkflowInputs(
         required: config.required === true,
         type: config.type || "string",
         default: config.default,
-        options: config.options,
+        // Convert all options to strings to handle YAML boolean parsing
+        options: config.options ? config.options.map((opt: any) => String(opt)) : undefined,
       });
     }
 
