@@ -489,3 +489,26 @@ export async function listTags(
     `/repos/${owner}/${repo}/tags?per_page=${limit}`,
   );
 }
+
+export interface GitHubEnvironment {
+  id: number;
+  name: string;
+  url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listEnvironments(
+  owner: string,
+  repo: string,
+): Promise<GitHubEnvironment[]> {
+  try {
+    const data = await githubFetch(
+      `/repos/${owner}/${repo}/environments`,
+    );
+    return data.environments || [];
+  } catch (err) {
+    console.error('Failed to fetch environments:', err);
+    return [];
+  }
+}

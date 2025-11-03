@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
-import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp, GitCommit, ExternalLink, Clock } from 'lucide-react';
 import { 
   Project, 
   Deployment, 
@@ -15,7 +15,7 @@ import {
   saveProject,
   saveDeployment,
 } from '../lib/storage';
-import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun } from '../lib/github';
+import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, listEnvironments, getLatestBuildsForBranch } from '../lib/github';
 import { ProductionReleaseProcess } from './ProductionReleaseProcess';
 import { DeploymentStatusSection } from './DeploymentStatusSection';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -77,11 +77,34 @@ export function ProductionReleaseTabs({
   const [workflowInputs, setWorkflowInputs] = useState<{ [pipelineId: string]: WorkflowInput[] }>({});
   const [inputValues, setInputValues] = useState<{ [pipelineId: string]: Record<string, any> }>({});
   const [deployOpen, setDeployOpen] = useState(true);
+  const [environments, setEnvironments] = useState<{ [repositoryId: string]: string[] }>({});
+  
+  // Build history states
+  type BuildInfo = {
+    commit: { sha: string; message: string; author: string; date: string } | null;
+    buildNumber: string | null;
+    status: string | null;
+    conclusion: string | null;
+    url: string | null;
+    createdAt: string | null;
+    loading: boolean;
+  };
+  type BuildHistoryItem = {
+    buildNumber: string;
+    commit: { sha: string; message: string; author: string; date: string };
+    status: string;
+    conclusion: string | null;
+    url: string;
+    createdAt: string;
+  };
+  const [latestBuilds, setLatestBuilds] = useState<{ [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] } }>({});
+  const [showBuildHistory, setShowBuildHistory] = useState<{ [pipelineId: string]: boolean }>({});
 
   useEffect(() => {
     loadReleases();
     loadDeployments();
     loadWorkflowInputs();
+    loadLatestBuilds();
   }, [project.id]);
 
   useEffect(() => {
@@ -116,6 +139,20 @@ export function ProductionReleaseTabs({
   };
 
   const loadWorkflowInputs = async () => {
+    // First, load environments for all repositories
+    const loadedEnvironments: { [repositoryId: string]: string[] } = {};
+    for (const repository of project.repositories) {
+      try {
+        const envs = await listEnvironments(repository.owner, repository.repo);
+        loadedEnvironments[repository.id] = envs.map(env => env.name);
+      } catch (err) {
+        console.error(`Failed to load environments for ${repository.owner}/${repository.repo}:`, err);
+        loadedEnvironments[repository.id] = [];
+      }
+    }
+    setEnvironments(loadedEnvironments);
+
+    // Then load workflow inputs for each pipeline
     for (const pipeline of project.pipelines) {
       const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
       if (!repository) continue;
@@ -127,18 +164,29 @@ export function ProductionReleaseTabs({
           pipeline.workflowFile
         );
         
+        // For environment type inputs, add available environments as options
+        const enrichedInputs = inputs.map(input => {
+          if (input.type === 'environment' && !input.options) {
+            return {
+              ...input,
+              options: loadedEnvironments[repository.id] || [],
+            };
+          }
+          return input;
+        });
+        
         setWorkflowInputs(prev => ({
           ...prev,
-          [pipeline.id]: inputs,
+          [pipeline.id]: enrichedInputs,
         }));
 
         // Initialize input values with defaults
         const defaultValues: Record<string, any> = {};
-        inputs.forEach(input => {
+        enrichedInputs.forEach(input => {
           if (pipeline.defaultInputValues && pipeline.defaultInputValues[input.name] !== undefined) {
             defaultValues[input.name] = pipeline.defaultInputValues[input.name];
           } else if (input.default !== undefined) {
-            defaultValues[input.default] = input.default;
+            defaultValues[input.name] = input.default;
           } else if (input.type === 'boolean') {
             defaultValues[input.name] = false;
           } else {
@@ -342,6 +390,100 @@ export function ProductionReleaseTabs({
         {status.replace('_', ' ')}
       </Badge>
     );
+  };
+
+  // Build history functions
+  const loadLatestBuilds = async () => {
+    const buildsData: { [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] } } = {};
+    
+    for (const pipeline of project.pipelines) {
+      const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+      if (!repository) continue;
+
+      buildsData[pipeline.id] = { commit: null, buildNumber: null, status: null, conclusion: null, url: null, createdAt: null, loading: true };
+
+      try {
+        const builds = await getLatestBuildsForBranch(
+          repository.owner,
+          repository.repo,
+          pipeline.workflowFile,
+          pipeline.branch,
+          5
+        );
+
+        if (builds.length > 0) {
+          const latestBuild = builds[0];
+          
+          // Create history array with all builds
+          const history: BuildHistoryItem[] = builds
+            .filter(build => build.commit)
+            .map(build => ({
+              buildNumber: build.buildNumber || 'N/A',
+              commit: build.commit!,
+              status: build.status || 'unknown',
+              conclusion: build.conclusion || null,
+              url: build.url || '',
+              createdAt: build.createdAt || new Date().toISOString(),
+            }));
+
+          buildsData[pipeline.id] = {
+            commit: latestBuild.commit || null,
+            buildNumber: latestBuild.buildNumber || null,
+            status: latestBuild.status || null,
+            conclusion: latestBuild.conclusion || null,
+            url: latestBuild.url || null,
+            createdAt: latestBuild.createdAt || null,
+            loading: false,
+            history,
+          };
+        } else {
+          buildsData[pipeline.id] = { commit: null, buildNumber: null, status: null, conclusion: null, url: null, createdAt: null, loading: false };
+        }
+      } catch (err) {
+        console.error(`Failed to load builds for ${pipeline.name}:`, err);
+        buildsData[pipeline.id] = { commit: null, buildNumber: null, status: null, conclusion: null, url: null, createdAt: null, loading: false };
+      }
+    }
+
+    setLatestBuilds(buildsData);
+  };
+
+  const handleUseBuild = (pipelineId: string, buildNumber: string) => {
+    setInputValues(prev => ({
+      ...prev,
+      [pipelineId]: {
+        ...prev[pipelineId],
+        build_number: buildNumber,
+      },
+    }));
+    setBuildNumbers(prev => ({ ...prev, [pipelineId]: buildNumber }));
+  };
+
+  const formatRelativeDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getQAStatusIcon = (status: string | null, conclusion: string | null) => {
+    if (status === 'completed') {
+      if (conclusion === 'success') {
+        return <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />;
+      } else if (conclusion === 'failure') {
+        return <XCircle className="w-4 h-4" style={{ color: '#ef4444' }} />;
+      }
+    } else if (status === 'in_progress' || status === 'queued') {
+      return <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#2563eb' }} />;
+    }
+    return <Circle className="w-4 h-4" style={{ color: '#9ca3af' }} />;
   };
 
   // If no releases exist, show a prompt to create the first one
@@ -567,7 +709,139 @@ export function ProductionReleaseTabs({
                                   </div>
                                 )}
                               </div>
+                              
+                              {/* Latest Build Badge */}
+                              <div className="flex flex-col items-end gap-1">
+                                {latestBuilds[pipeline.id]?.loading ? (
+                                  <div className="flex items-center gap-1 text-xs" style={{ color: '#9ca3af' }}>
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    <span>Loading builds...</span>
+                                  </div>
+                                ) : latestBuilds[pipeline.id]?.buildNumber ? (
+                                  <>
+                                    <div 
+                                      className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all" 
+                                      style={{ color: '#7c3aed' }}
+                                      onClick={() => handleUseBuild(pipeline.id, latestBuilds[pipeline.id]?.buildNumber || '')}
+                                      title={`Click to use latest build from ${pipeline.branch}`}
+                                    >
+                                      <GitBranch className="w-3 h-3" />
+                                      <span>{pipeline.branch}:</span>
+                                      <code 
+                                        className="px-1.5 py-0.5 rounded font-semibold" 
+                                        style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                                      >
+                                        {latestBuilds[pipeline.id]?.buildNumber}
+                                      </code>
+                                    </div>
+                                    {latestBuilds[pipeline.id]?.history && latestBuilds[pipeline.id]?.history!.length > 1 && (
+                                      <button
+                                        type="button"
+                                        className="text-xs hover:underline transition-all flex items-center gap-1"
+                                        style={{ color: '#9ca3af' }}
+                                        onClick={() => setShowBuildHistory(prev => ({
+                                          ...prev,
+                                          [pipeline.id]: !prev[pipeline.id]
+                                        }))}
+                                      >
+                                        {showBuildHistory[pipeline.id] ? (
+                                          <>
+                                            <ChevronUp className="w-3 h-3" />
+                                            <span>Hide</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ChevronDown className="w-3 h-3" />
+                                            <span>Show {latestBuilds[pipeline.id]?.history!.length - 1} more</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    )}
+                                  </>
+                                ) : null}
+                              </div>
                             </div>
+
+                            {/* Last 5 Builds Dropdown */}
+                            {showBuildHistory[pipeline.id] && latestBuilds[pipeline.id]?.history && latestBuilds[pipeline.id]?.history!.length > 1 && (
+                              <div className="mt-2 p-2 rounded-md border space-y-1.5" style={{ background: '#fafaf9', borderColor: '#e9d5ff' }}>
+                                <div className="text-xs font-semibold mb-1.5" style={{ color: '#6b21a8' }}>
+                                  Last {latestBuilds[pipeline.id]?.history!.length} builds from {pipeline.branch}
+                                </div>
+                                {latestBuilds[pipeline.id]?.history!.slice(0, 5).map((build, index) => {
+                                  const statusColor = build.conclusion === 'success' ? '#10b981' : 
+                                                     build.conclusion === 'failure' ? '#ef4444' : 
+                                                     build.status === 'in_progress' ? '#2563eb' : '#6b7280';
+                                  const statusIcon = build.conclusion === 'success' ? CheckCircle2 : 
+                                                    build.conclusion === 'failure' ? XCircle : 
+                                                    build.status === 'in_progress' ? RefreshCw : Clock;
+                                  const StatusIcon = statusIcon;
+                                  
+                                  return (
+                                    <div 
+                                      key={index}
+                                      className="flex items-center justify-between p-2 rounded border cursor-pointer hover:border-purple-300 transition-all group"
+                                      style={{ background: '#ffffff', borderColor: index === 0 ? '#c4b5fd' : '#e9d5ff' }}
+                                      onClick={() => {
+                                        handleUseBuild(pipeline.id, build.buildNumber);
+                                        setShowBuildHistory(prev => ({ ...prev, [pipeline.id]: false }));
+                                      }}
+                                      title={`Click to use this build`}
+                                    >
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <StatusIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: statusColor }} />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <code 
+                                              className="px-1.5 py-0.5 rounded text-xs font-semibold" 
+                                              style={{ 
+                                                background: index === 0 ? 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)' : '#f3f4f6', 
+                                                color: index === 0 ? '#6b21a8' : '#4b5563' 
+                                              }}
+                                            >
+                                              {build.buildNumber}
+                                            </code>
+                                            {index === 0 && (
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs px-1.5 py-0" 
+                                                style={{ background: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' }}
+                                              >
+                                                Latest
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {build.commit && (
+                                            <p className="text-xs mt-0.5 truncate" style={{ color: '#6b7280' }}>
+                                              {build.commit.sha} • {build.commit.message}
+                                            </p>
+                                          )}
+                                          {build.createdAt && (
+                                            <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                                              {new Date(build.createdAt).toLocaleString()}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {build.url && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(build.url, '_blank');
+                                          }}
+                                          title="View on GitHub"
+                                        >
+                                          <ExternalLink className="w-3 h-3" style={{ color: '#7c3aed' }} />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
 
                             {/* Workflow Inputs */}
                             {allInputs.length > 0 && (
@@ -603,7 +877,7 @@ export function ProductionReleaseTabs({
                                               {input.description || 'Enable'}
                                             </Label>
                                           </div>
-                                        ) : input.type === 'choice' && input.options ? (
+                                        ) : (input.type === 'choice' || input.type === 'environment') && input.options && input.options.length > 0 ? (
                                           <Select
                                             value={value || ''}
                                             onValueChange={(val) => {
