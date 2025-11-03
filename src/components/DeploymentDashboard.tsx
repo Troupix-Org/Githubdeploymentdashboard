@@ -16,6 +16,7 @@ import {
   ExternalLink,
   GitBranch,
   FolderGit2,
+  GitCommit,
   ChevronDown,
   ChevronUp,
   Star,
@@ -27,7 +28,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Project, Deployment, saveDeployment, Repository, saveProject, getDeploymentsByProject, deleteDeployment, deleteDeploymentsByBatch } from '../lib/storage';
-import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, getWorkflowRun } from '../lib/github';
+import { triggerWorkflow, getLatestBuildsForBranch, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, getWorkflowRun, listEnvironments } from '../lib/github';
 import { ProductionReleaseProcess } from './ProductionReleaseProcess';
 import { ProductionReleaseTabs } from './ProductionReleaseTabs';
 import {
@@ -62,13 +63,31 @@ interface DeploymentDashboardProps {
   onBack: () => void;
 }
 
+interface LatestBuildInfo {
+  buildNumber?: string;
+  commit?: {
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+  };
+  status?: string;
+  conclusion?: string;
+  url?: string;
+  runId?: number;
+  createdAt?: string;
+  loading?: boolean;
+}
+
 export function DeploymentDashboard({ project: initialProject, onBack }: DeploymentDashboardProps) {
   const [project, setProject] = useState<Project>(initialProject);
   const [buildNumbers, setBuildNumbers] = useState<{ [pipelineId: string]: string }>({});
   const [loadingPipelines, setLoadingPipelines] = useState<{ [pipelineId: string]: boolean }>({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
+  const [latestBuilds, setLatestBuilds] = useState<{ [pipelineId: string]: LatestBuildInfo }>({});
+  const [allBuilds, setAllBuilds] = useState<{ [pipelineId: string]: LatestBuildInfo[] }>({});
+  const [showAllBuilds, setShowAllBuilds] = useState<{ [pipelineId: string]: boolean }>({});
   
   // Deploy All Dialog states
   const [showDeployAllDialog, setShowDeployAllDialog] = useState(false);
@@ -80,6 +99,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
   // Workflow inputs states
   const [workflowInputs, setWorkflowInputs] = useState<{ [pipelineId: string]: WorkflowInput[] }>({});
   const [inputValues, setInputValues] = useState<{ [pipelineId: string]: Record<string, any> }>({});
+  const [environments, setEnvironments] = useState<{ [repositoryId: string]: string[] }>({});
 
   // Collapsible sections states
   const [deployOpen, setDeployOpen] = useState(false);
@@ -226,9 +246,74 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     }
   };
 
+  const loadLatestBuilds = async () => {
+    // Load latest builds from the configured branch for each pipeline
+    for (const pipeline of project.pipelines) {
+      // Set loading state
+      setLatestBuilds(prev => ({
+        ...prev,
+        [pipeline.id]: { loading: true },
+      }));
 
+      // Find the repository for this pipeline
+      const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
+      if (!repo) {
+        setLatestBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: {},
+        }));
+        continue;
+      }
+
+      try {
+        // Load last 5 builds
+        const buildsData = await getLatestBuildsForBranch(
+          repo.owner,
+          repo.repo,
+          pipeline.workflowFile,
+          pipeline.branch,
+          5
+        );
+        
+        setAllBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: buildsData || [],
+        }));
+        
+        // Set the latest build (first one) as the default
+        setLatestBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: buildsData[0] || {},
+        }));
+      } catch (err) {
+        console.error(`Failed to load latest builds for ${pipeline.name} on ${pipeline.branch}:`, err);
+        setLatestBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: {},
+        }));
+        setAllBuilds(prev => ({
+          ...prev,
+          [pipeline.id]: [],
+        }));
+      }
+    }
+  };
 
   const loadWorkflowInputs = async () => {
+    // First, load environments for all repositories
+    const loadedEnvironments: { [repositoryId: string]: string[] } = {};
+    for (const repository of project.repositories) {
+      try {
+        const envs = await listEnvironments(repository.owner, repository.repo);
+        loadedEnvironments[repository.id] = envs.map(env => env.name);
+      } catch (err) {
+        console.error(`Failed to load environments for ${repository.owner}/${repository.repo}:`, err);
+        loadedEnvironments[repository.id] = [];
+      }
+    }
+    setEnvironments(loadedEnvironments);
+
+    // Then load workflow inputs for each pipeline
     for (const pipeline of project.pipelines) {
       const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
       if (!repository) continue;
@@ -240,14 +325,25 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
           pipeline.workflowFile
         );
         
+        // For environment type inputs, add available environments as options
+        const enrichedInputs = inputs.map(input => {
+          if (input.type === 'environment' && !input.options) {
+            return {
+              ...input,
+              options: loadedEnvironments[repository.id] || [],
+            };
+          }
+          return input;
+        });
+        
         setWorkflowInputs(prev => ({
           ...prev,
-          [pipeline.id]: inputs,
+          [pipeline.id]: enrichedInputs,
         }));
 
         // Initialize input values with defaults
         const defaultValues: Record<string, any> = {};
-        inputs.forEach(input => {
+        enrichedInputs.forEach(input => {
           // First check if there's a saved default value for this pipeline
           if (pipeline.defaultInputValues && pipeline.defaultInputValues[input.name] !== undefined) {
             defaultValues[input.name] = pipeline.defaultInputValues[input.name];
@@ -272,6 +368,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
   useEffect(() => {
     loadDeployments();
+    loadLatestBuilds();
     loadWorkflowInputs();
   }, [project.id]);
 
@@ -632,6 +729,34 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
     return new Date(timestamp).toLocaleString();
   };
 
+  const formatRelativeDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const getQAStatusIcon = (status?: string, conclusion?: string | null) => {
+    if (status === 'completed' && conclusion === 'success') {
+      return <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />;
+    }
+    if (status === 'completed' && conclusion === 'failure') {
+      return <XCircle className="w-4 h-4" style={{ color: '#ef4444' }} />;
+    }
+    if (status === 'in_progress') {
+      return <RefreshCw className="w-4 h-4 animate-spin" style={{ color: '#2563eb' }} />;
+    }
+    return null;
+  };
+
   const getEnvironmentBadgeStyle = (environment?: string) => {
     if (!environment) return { background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' };
     
@@ -801,7 +926,153 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                       </div>
                     )}
                   </div>
+                  {buildNumberInput && (
+                    <div className="flex flex-col items-end gap-1">
+                      {latestBuilds[pipeline.id]?.loading ? (
+                        <div className="flex items-center gap-1 text-xs" style={{ color: '#9ca3af' }}>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          <span>Loading builds...</span>
+                        </div>
+                      ) : latestBuilds[pipeline.id]?.buildNumber ? (
+                        <>
+                          <div 
+                            className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all" 
+                            style={{ color: '#7c3aed' }}
+                            onClick={() => setInputValues(prev => ({
+                              ...prev,
+                              [pipeline.id]: {
+                                ...prev[pipeline.id],
+                                build_number: latestBuilds[pipeline.id]?.buildNumber || '',
+                              },
+                            }))}
+                            title={`Click to use latest build from ${pipeline.branch}`}
+                          >
+                            <GitBranch className="w-3 h-3" />
+                            <span>{pipeline.branch}:</span>
+                            <code 
+                              className="px-1.5 py-0.5 rounded font-semibold" 
+                              style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                            >
+                              {latestBuilds[pipeline.id]?.buildNumber}
+                            </code>
+                          </div>
+                          {allBuilds[pipeline.id]?.length > 1 && (
+                            <button
+                              type="button"
+                              className="text-xs hover:underline transition-all flex items-center gap-1"
+                              style={{ color: '#9ca3af' }}
+                              onClick={() => setShowAllBuilds(prev => ({
+                                ...prev,
+                                [pipeline.id]: !prev[pipeline.id]
+                              }))}
+                            >
+                              {showAllBuilds[pipeline.id] ? (
+                                <>
+                                  <ChevronUp className="w-3 h-3" />
+                                  <span>Hide</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="w-3 h-3" />
+                                  <span>Show {allBuilds[pipeline.id].length - 1} more</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
+
+                {/* Last 5 Builds Dropdown */}
+                {showAllBuilds[pipeline.id] && allBuilds[pipeline.id]?.length > 1 && (
+                  <div className="mt-2 p-2 rounded-md border space-y-1.5" style={{ background: '#fafaf9', borderColor: '#e9d5ff' }}>
+                    <div className="text-xs font-semibold mb-1.5" style={{ color: '#6b21a8' }}>
+                      Last {allBuilds[pipeline.id].length} builds from {pipeline.branch}
+                    </div>
+                    {allBuilds[pipeline.id].slice(0, 5).map((build, index) => {
+                      const statusColor = build.conclusion === 'success' ? '#10b981' : 
+                                         build.conclusion === 'failure' ? '#ef4444' : 
+                                         build.status === 'in_progress' ? '#2563eb' : '#6b7280';
+                      const statusIcon = build.conclusion === 'success' ? CheckCircle2 : 
+                                        build.conclusion === 'failure' ? XCircle : 
+                                        build.status === 'in_progress' ? RefreshCw : Clock;
+                      const StatusIcon = statusIcon;
+                      
+                      return (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between p-2 rounded border cursor-pointer hover:border-purple-300 transition-all group"
+                          style={{ background: '#ffffff', borderColor: index === 0 ? '#c4b5fd' : '#e9d5ff' }}
+                          onClick={() => {
+                            if (buildNumberInput) {
+                              setInputValues(prev => ({
+                                ...prev,
+                                [pipeline.id]: {
+                                  ...prev[pipeline.id],
+                                  build_number: build.buildNumber || '',
+                                },
+                              }));
+                              setShowAllBuilds(prev => ({ ...prev, [pipeline.id]: false }));
+                            }
+                          }}
+                          title={`Click to use this build`}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <StatusIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: statusColor }} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <code 
+                                  className="px-1.5 py-0.5 rounded text-xs font-semibold" 
+                                  style={{ 
+                                    background: index === 0 ? 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)' : '#f3f4f6', 
+                                    color: index === 0 ? '#6b21a8' : '#4b5563' 
+                                  }}
+                                >
+                                  {build.buildNumber}
+                                </code>
+                                {index === 0 && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs px-1.5 py-0" 
+                                    style={{ background: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' }}
+                                  >
+                                    Latest
+                                  </Badge>
+                                )}
+                              </div>
+                              {build.commit && (
+                                <p className="text-xs mt-0.5 truncate" style={{ color: '#6b7280' }}>
+                                  {build.commit.sha} • {build.commit.message}
+                                </p>
+                              )}
+                              {build.createdAt && (
+                                <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
+                                  {new Date(build.createdAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {build.url && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(build.url, '_blank');
+                              }}
+                              title="View on GitHub"
+                            >
+                              <ExternalLink className="w-3 h-3" style={{ color: '#7c3aed' }} />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* All Workflow Inputs in Compact Grid */}
                 {allInputs.length > 0 && (
@@ -837,7 +1108,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                                   {input.description || 'Enable'}
                                 </Label>
                               </div>
-                            ) : input.type === 'choice' && input.options ? (
+                            ) : (input.type === 'choice' || input.type === 'environment') && input.options && input.options.length > 0 ? (
                               <Select
                                 value={value || ''}
                                 onValueChange={(val) => {
