@@ -66,6 +66,7 @@ export interface ProductionRelease {
   deploymentIds: string[]; // Associated deployment IDs
   stagingDeploymentIds?: string[]; // Specific staging deployments
   productionDeploymentIds?: string[]; // Specific production deployments
+  preparedInputs?: { [pipelineId: string]: Record<string, any> }; // Pre-prepared workflow inputs for all pipelines
   qaSignOff?: {
     testerName: string;
     testDate: string;

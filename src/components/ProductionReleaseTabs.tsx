@@ -14,6 +14,7 @@ import {
   getDeploymentsByProject,
   saveProject,
   saveDeployment,
+  saveProductionRelease,
 } from '../lib/storage';
 import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, listEnvironments, getLatestBuildsForBranch } from '../lib/github';
 import { ProductionReleaseProcess } from './ProductionReleaseProcess';
@@ -99,6 +100,10 @@ export function ProductionReleaseTabs({
   };
   const [latestBuilds, setLatestBuilds] = useState<{ [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] } }>({});
   const [showBuildHistory, setShowBuildHistory] = useState<{ [pipelineId: string]: boolean }>({});
+  
+  // Prepare Inputs Dialog
+  const [showPrepareInputsDialog, setShowPrepareInputsDialog] = useState(false);
+  const [preparedInputs, setPreparedInputs] = useState<{ [pipelineId: string]: Record<string, any> }>({});
 
   useEffect(() => {
     loadReleases();
@@ -119,6 +124,32 @@ export function ProductionReleaseTabs({
       setUseAutoNumber(true);
     }
   }, [showNewReleaseDialog, project.id]);
+
+  // Load prepared inputs when active tab changes
+  useEffect(() => {
+    const currentRelease = releases.find(r => r.id === activeTab);
+    if (currentRelease?.preparedInputs) {
+      // Load prepared inputs into inputValues
+      const updatedInputValues = { ...inputValues };
+      const updatedBuildNumbers = { ...buildNumbers };
+      
+      Object.entries(currentRelease.preparedInputs).forEach(([pipelineId, inputs]) => {
+        updatedInputValues[pipelineId] = {
+          ...updatedInputValues[pipelineId],
+          ...inputs,
+        };
+        
+        // Also update build numbers state if present
+        if (inputs.build_number) {
+          updatedBuildNumbers[pipelineId] = inputs.build_number;
+        }
+      });
+      
+      setInputValues(updatedInputValues);
+      setBuildNumbers(updatedBuildNumbers);
+      setPreparedInputs(currentRelease.preparedInputs);
+    }
+  }, [activeTab, releases]);
 
   const loadReleases = () => {
     const projectReleases = getProductionReleasesByProject(project.id);
@@ -459,6 +490,80 @@ export function ProductionReleaseTabs({
     setBuildNumbers(prev => ({ ...prev, [pipelineId]: buildNumber }));
   };
 
+  const handleOpenPrepareInputsDialog = () => {
+    const currentRelease = releases.find(r => r.id === activeTab);
+    
+    // Initialize with smart defaults: prepared > current > favorite > empty
+    const initialInputs: { [pipelineId: string]: Record<string, any> } = {};
+    
+    project.pipelines.forEach(pipeline => {
+      const inputs: Record<string, any> = {};
+      const pipelineInputs = workflowInputs[pipeline.id] || [];
+      
+      pipelineInputs.forEach(input => {
+        // Priority 1: Already prepared value
+        if (currentRelease?.preparedInputs?.[pipeline.id]?.[input.name] !== undefined) {
+          inputs[input.name] = currentRelease.preparedInputs[pipeline.id][input.name];
+        }
+        // Priority 2: Current input value (if user already entered something)
+        else if (inputValues[pipeline.id]?.[input.name] !== undefined && inputValues[pipeline.id][input.name] !== '') {
+          inputs[input.name] = inputValues[pipeline.id][input.name];
+        }
+        // Priority 3: Favorite/default value
+        else if (pipeline.defaultInputValues?.[input.name] !== undefined) {
+          inputs[input.name] = pipeline.defaultInputValues[input.name];
+        }
+        // Priority 4: Empty (will use placeholder or default from workflow)
+        else {
+          inputs[input.name] = input.type === 'boolean' ? false : '';
+        }
+      });
+      
+      initialInputs[pipeline.id] = inputs;
+    });
+    
+    setPreparedInputs(initialInputs);
+    setShowPrepareInputsDialog(true);
+  };
+
+  const handleSavePreparedInputs = () => {
+    const currentRelease = releases.find(r => r.id === activeTab);
+    if (!currentRelease) return;
+
+    // Update the release with prepared inputs
+    const updatedRelease: ProductionRelease = {
+      ...currentRelease,
+      preparedInputs: preparedInputs,
+    };
+
+    // Save to storage
+    saveProductionRelease(updatedRelease);
+    loadReleases();
+    
+    // Also update current input values
+    const updatedInputValues = { ...inputValues };
+    const updatedBuildNumbers = { ...buildNumbers };
+    
+    Object.entries(preparedInputs).forEach(([pipelineId, inputs]) => {
+      updatedInputValues[pipelineId] = {
+        ...updatedInputValues[pipelineId],
+        ...inputs,
+      };
+      
+      // Update build numbers state if present
+      if (inputs.build_number) {
+        updatedBuildNumbers[pipelineId] = inputs.build_number;
+      }
+    });
+    
+    setInputValues(updatedInputValues);
+    setBuildNumbers(updatedBuildNumbers);
+    
+    setShowPrepareInputsDialog(false);
+    setSuccess('Workflow inputs prepared and saved successfully!');
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
   const formatRelativeDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -657,25 +762,56 @@ export function ProductionReleaseTabs({
               <Collapsible open={deployOpen} onOpenChange={setDeployOpen}>
                 <Card id="deploy-section" className="border-[#e5e7eb]" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)' }}>
                   <CardHeader>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="p-0 h-auto hover:bg-transparent w-full">
-                        <div className="flex items-start justify-between w-full">
-                          <div className="text-left">
-                            <div className="flex items-center gap-2">
-                              <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
-                              <CardTitle style={{ color: '#6b21a8' }}>Deploy</CardTitle>
-                              {deployOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
+                    <div className="flex items-start justify-between gap-4">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" className="p-0 h-auto hover:bg-transparent flex-1 text-left">
+                          <div className="flex items-start justify-between w-full">
+                            <div className="text-left">
+                              <div className="flex items-center gap-2">
+                                <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
+                                <CardTitle style={{ color: '#6b21a8' }}>Deploy</CardTitle>
+                                {deployOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
+                              </div>
+                              <CardDescription style={{ color: '#6b7280' }}>
+                                Trigger a new deployment for this release
+                                {release.preparedInputs && Object.keys(release.preparedInputs).length > 0 && (
+                                  <span className="ml-2 inline-flex items-center gap-1 text-green-600">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    {Object.keys(release.preparedInputs).length}/{project.pipelines.length} pipelines configured
+                                  </span>
+                                )}
+                              </CardDescription>
                             </div>
-                            <CardDescription style={{ color: '#6b7280' }}>
-                              Trigger a new deployment for this release
-                            </CardDescription>
                           </div>
-                        </div>
+                        </Button>
+                      </CollapsibleTrigger>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleOpenPrepareInputsDialog}
+                        className="flex-shrink-0"
+                        style={{ borderColor: '#c084fc', color: '#7c3aed' }}
+                      >
+                        <Star className="w-4 h-4 mr-2" />
+                        {release.preparedInputs && Object.keys(release.preparedInputs).length > 0 
+                          ? 'Update Inputs' 
+                          : 'Prepare Inputs'}
                       </Button>
-                    </CollapsibleTrigger>
+                    </div>
                   </CardHeader>
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
+                      {/* Prepared Inputs Info */}
+                      {release.preparedInputs && Object.keys(release.preparedInputs).length > 0 && (
+                        <Alert className="border-2" style={{ background: '#f0fdf4', borderColor: '#86efac' }}>
+                          <CheckCircle2 className="h-4 w-4" style={{ color: '#16a34a' }} />
+                          <AlertDescription style={{ color: '#166534' }}>
+                            <strong>Inputs Ready:</strong> {Object.keys(release.preparedInputs).length} pipeline{Object.keys(release.preparedInputs).length > 1 ? 's have' : ' has'} pre-configured inputs. 
+                            You can modify them below before deploying.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
                       {/* Pipeline Rows */}
                       {project.pipelines.map(pipeline => {
                         const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
@@ -695,6 +831,17 @@ export function ProductionReleaseTabs({
                                   <div className="text-base font-semibold" style={{ color: '#6b21a8' }}>
                                     {pipeline.name}
                                   </div>
+                                  {release.preparedInputs?.[pipeline.id] && Object.keys(release.preparedInputs[pipeline.id]).length > 0 && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-xs px-1.5 py-0" 
+                                      style={{ background: '#dcfce7', color: '#16a34a', borderColor: '#86efac' }}
+                                      title={`${Object.keys(release.preparedInputs[pipeline.id]).length} input(s) pre-configured`}
+                                    >
+                                      <Star className="w-3 h-3 mr-0.5" fill="#16a34a" />
+                                      {Object.keys(release.preparedInputs[pipeline.id]).length}
+                                    </Badge>
+                                  )}
                                 </div>
                                 {repo && (
                                   <div className="flex items-center gap-3 text-xs" style={{ color: '#6b7280' }}>
@@ -854,9 +1001,12 @@ export function ProductionReleaseTabs({
                                     
                                     return (
                                       <div key={input.name} className="space-y-0.5">
-                                        <Label htmlFor={`input-${release.id}-${pipeline.id}-${input.name}`} className="text-xs font-medium" style={{ color: '#6b21a8' }}>
+                                        <Label htmlFor={`input-${release.id}-${pipeline.id}-${input.name}`} className="text-xs font-medium flex items-center gap-1" style={{ color: '#6b21a8' }}>
                                           {input.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                           {input.required && <span style={{ color: '#ec4899' }}> *</span>}
+                                          {release.preparedInputs?.[pipeline.id]?.[input.name] !== undefined && (
+                                            <Star className="w-3 h-3" style={{ color: '#fbbf24' }} fill="#fbbf24" title="Pre-configured value" />
+                                          )}
                                         </Label>
                                         {input.type === 'boolean' ? (
                                           <div className="flex items-center space-x-2 h-8 px-3 border border-[#d1d5db] rounded-md" style={{ background: '#ffffff' }}>
@@ -1122,6 +1272,204 @@ export function ProductionReleaseTabs({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Prepare Inputs Dialog */}
+      <Dialog open={showPrepareInputsDialog} onOpenChange={setShowPrepareInputsDialog}>
+        <DialogContent className="sm:max-w-[700px]" style={{ background: '#1e293b', borderColor: '#475569' }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: '#e9d5ff' }}>
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5" style={{ color: '#fbbf24' }} />
+                Prepare Workflow Inputs
+              </div>
+            </DialogTitle>
+            <DialogDescription style={{ color: '#cbd5e1' }}>
+              Pre-configure all workflow inputs for each pipeline. These will be saved and automatically populated when you return to this release.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* Favorite Values Info */}
+          {(() => {
+            const favoriteCount = project.pipelines.reduce((count, pipeline) => {
+              return count + (pipeline.defaultInputValues ? Object.keys(pipeline.defaultInputValues).length : 0);
+            }, 0);
+            
+            return favoriteCount > 0 ? (
+              <div className="mx-6 mb-2 rounded-lg p-3 border" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: '#fbbf24' }}>
+                <div className="flex items-start gap-2">
+                  <Star className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#fbbf24' }} fill="#fbbf24" />
+                  <p className="text-sm" style={{ color: '#fcd34d' }}>
+                    <strong>{favoriteCount} favorite value{favoriteCount > 1 ? 's' : ''}</strong> automatically loaded from your saved preferences.
+                  </p>
+                </div>
+              </div>
+            ) : null;
+          })()}
+          
+          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+            {project.pipelines.map(pipeline => {
+              const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
+              const latestBuild = latestBuilds[pipeline.id];
+              const allInputs = workflowInputs[pipeline.id] || [];
+              
+              return (
+                <div key={pipeline.id} className="space-y-3 p-4 rounded-lg border-2" style={{ borderColor: '#475569', background: '#0f172a' }}>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <GitBranch className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                        <Label style={{ color: '#e9d5ff' }} className="font-semibold">
+                          {pipeline.name}
+                        </Label>
+                      </div>
+                      {repo && (
+                        <div className="text-xs" style={{ color: '#94a3b8' }}>
+                          {repo.owner}/{repo.repo} • {pipeline.branch} {pipeline.environment && `• ${pipeline.environment}`}
+                        </div>
+                      )}
+                    </div>
+                    {latestBuild && latestBuild.buildNumber && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPreparedInputs(prev => ({ 
+                          ...prev, 
+                          [pipeline.id]: { 
+                            ...prev[pipeline.id], 
+                            build_number: latestBuild.buildNumber || '' 
+                          } 
+                        }))}
+                        className="flex-shrink-0"
+                        style={{ borderColor: '#475569', color: '#cbd5e1' }}
+                        title={`Use latest build: ${latestBuild.buildNumber}`}
+                      >
+                        <Clock className="w-3 h-3 mr-1" />
+                        Use Latest Build
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {allInputs.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {allInputs.map(input => {
+                        const currentValue = preparedInputs[pipeline.id]?.[input.name];
+                        const isFavorite = pipeline.defaultInputValues?.[input.name] !== undefined;
+                        
+                        return (
+                          <div key={input.name} className="space-y-1">
+                            <Label className="text-xs flex items-center gap-1" style={{ color: '#cbd5e1' }}>
+                              {input.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                              {input.required && <span style={{ color: '#fca5a5' }}> *</span>}
+                              {isFavorite && (
+                                <Star 
+                                  className="w-3 h-3" 
+                                  style={{ color: '#fbbf24' }} 
+                                  fill="#fbbf24" 
+                                  title="This input has a saved favorite value"
+                                />
+                              )}
+                            </Label>
+                            
+                            {input.type === 'boolean' ? (
+                              <div className="flex items-center space-x-2 h-9 px-3 border rounded-md" style={{ background: '#1e293b', borderColor: '#475569' }}>
+                                <Checkbox
+                                  checked={currentValue === true}
+                                  onCheckedChange={(checked) => {
+                                    setPreparedInputs(prev => ({
+                                      ...prev,
+                                      [pipeline.id]: {
+                                        ...prev[pipeline.id],
+                                        [input.name]: checked,
+                                      },
+                                    }));
+                                  }}
+                                />
+                                <Label className="cursor-pointer text-xs" style={{ color: '#94a3b8' }}>
+                                  {input.description || 'Enable'}
+                                </Label>
+                              </div>
+                            ) : (input.type === 'choice' || input.type === 'environment') && input.options && input.options.length > 0 ? (
+                              <Select
+                                value={currentValue || ''}
+                                onValueChange={(val) => {
+                                  setPreparedInputs(prev => ({
+                                    ...prev,
+                                    [pipeline.id]: {
+                                      ...prev[pipeline.id],
+                                      [input.name]: val,
+                                    },
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger
+                                  className="h-9 text-xs"
+                                  style={{ background: '#1e293b', borderColor: '#475569', color: '#e9d5ff' }}
+                                >
+                                  <SelectValue placeholder={input.description || `Select ${input.name}`} />
+                                </SelectTrigger>
+                                <SelectContent style={{ background: '#1e293b', borderColor: '#475569' }}>
+                                  {input.options.map(option => (
+                                    <SelectItem key={option} value={option} style={{ color: '#e9d5ff' }}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                type={input.type === 'number' ? 'number' : 'text'}
+                                placeholder={input.default ? String(input.default) : input.description || ''}
+                                value={currentValue || ''}
+                                onChange={(e) => {
+                                  const val = input.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                                  setPreparedInputs(prev => ({
+                                    ...prev,
+                                    [pipeline.id]: {
+                                      ...prev[pipeline.id],
+                                      [input.name]: val,
+                                    },
+                                  }));
+                                }}
+                                className="h-9 text-xs"
+                                style={{ background: '#1e293b', borderColor: '#475569', color: '#e9d5ff' }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-center py-4" style={{ color: '#94a3b8' }}>
+                      No workflow inputs detected for this pipeline
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="rounded-lg p-3 border" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: '#fbbf24' }}>
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#fbbf24' }} />
+              <p className="text-sm" style={{ color: '#fcd34d' }}>
+                <strong>Tip:</strong> All workflow inputs will be saved and automatically loaded when you come back to this release. You can modify them at any time before deploying.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPrepareInputsDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePreparedInputs}
+              className="text-white"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Save All Inputs
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
