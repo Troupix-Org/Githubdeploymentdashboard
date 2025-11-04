@@ -1,12 +1,14 @@
 import { Button } from './ui/button';
-import { Github, LogOut } from 'lucide-react';
-import { clearGitHubToken } from '../lib/storage';
+import { Github, LogOut, User } from 'lucide-react';
+import { clearGitHubToken, GitHubUser } from '../lib/storage';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 interface HeaderProps {
+  user: GitHubUser | null;
   onLogout: () => void;
 }
 
-export function Header({ onLogout }: HeaderProps) {
+export function Header({ user, onLogout }: HeaderProps) {
   const handleLogout = () => {
     if (confirm('Are you sure you want to logout? This will clear your GitHub token.')) {
       clearGitHubToken();
@@ -29,14 +31,34 @@ export function Header({ onLogout }: HeaderProps) {
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="hover:bg-purple-50"
-          >
-            <LogOut className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
-            <span style={{ color: '#7c3aed' }}>Logout</span>
-          </Button>
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="flex items-center gap-3 px-4 py-2 rounded-lg border" style={{ background: '#ffffff', borderColor: '#e9d5ff' }}>
+                <Avatar className="w-8 h-8">
+                  <AvatarImage src={user.avatar_url} alt={user.name || user.login} />
+                  <AvatarFallback style={{ background: '#e9d5ff', color: '#7c3aed' }}>
+                    <User className="w-4 h-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium" style={{ color: '#6b21a8' }}>
+                    {user.name || user.login}
+                  </span>
+                  <span className="text-xs" style={{ color: '#7c3aed' }}>
+                    @{user.login}
+                  </span>
+                </div>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="hover:bg-purple-50"
+            >
+              <LogOut className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
+              <span style={{ color: '#7c3aed' }}>Logout</span>
+            </Button>
+          </div>
         </div>
       </div>
     </header>

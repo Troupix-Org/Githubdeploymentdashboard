@@ -5,7 +5,7 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Github, KeyRound, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { saveGitHubToken } from '../lib/storage';
+import { saveGitHubToken, saveGitHubUser } from '../lib/storage';
 import { verifyToken } from '../lib/github';
 
 interface TokenSetupProps {
@@ -32,8 +32,11 @@ export function TokenSetup({ onTokenSaved }: TokenSetupProps) {
       // Save token temporarily to test it
       saveGitHubToken(token);
       
-      // Verify the token works
+      // Verify the token works and get user details
       const user = await verifyToken();
+      
+      // Save user details
+      saveGitHubUser(user);
       
       setSuccess(true);
       setTimeout(() => {
