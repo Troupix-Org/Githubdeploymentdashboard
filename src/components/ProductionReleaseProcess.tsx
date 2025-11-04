@@ -32,6 +32,7 @@ import {
   ExternalLink,
   AlertCircle,
   Download,
+  RefreshCw,
 } from "lucide-react";
 import {
   Project,
@@ -66,6 +67,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { ReleaseCreator } from "./ReleaseCreator";
+import { BuildVersionUpdater } from "./BuildVersionUpdater";
 
 interface ProductionReleaseProcessProps {
   project: Project;
@@ -176,6 +178,9 @@ export function ProductionReleaseProcess({
   const [releaseDialog, setReleaseDialog] = useState(false);
   const [selectedRepository, setSelectedRepository] =
     useState<string>("");
+
+  // Step 9: Update BUILD_VERSION
+  const [buildVersionDialog, setBuildVersionDialog] = useState(false);
 
   // Persistent storage keys
   const STORAGE_PREFIX = `prod_release_${project.id}_`;
@@ -454,6 +459,10 @@ export function ProductionReleaseProcess({
       8,
       "step_8_completed",
     );
+    const step9ManuallyCompleted = getStepStatus(
+      9,
+      "step_9_completed",
+    );
 
     const newSteps: ProductionStep[] = [
       {
@@ -547,6 +556,16 @@ export function ProductionReleaseProcess({
           ? "completed"
           : "pending",
         icon: FileCheck,
+        requiresAction: true,
+      },
+      {
+        id: 9,
+        title: "Update BUILD_VERSION",
+        description: "Update BUILD_VERSION variables in repositories",
+        status: step9ManuallyCompleted
+          ? "completed"
+          : "pending",
+        icon: RefreshCw,
         requiresAction: true,
       },
     ];
@@ -1037,6 +1056,9 @@ Thanks and regards`,
       case 8:
         setReleaseDialog(true);
         break;
+      case 9:
+        setBuildVersionDialog(true);
+        break;
     }
   };
 
@@ -1084,6 +1106,9 @@ Thanks and regards`,
       );
       localStorage.removeItem(
         `${STORAGE_PREFIX}step_8_completed`,
+      );
+      localStorage.removeItem(
+        `${STORAGE_PREFIX}step_9_completed`,
       );
 
       setQaSignOff({
@@ -1163,6 +1188,7 @@ Thanks and regards`,
         saveToStorage("step_6_completed", true);
         saveToStorage("prod_complete_email_sent", true);
         saveToStorage("step_8_completed", true);
+        saveToStorage("step_9_completed", true);
         updateSteps();
       }
     }
@@ -1539,6 +1565,10 @@ Thanks and regards`,
                                   localStorage.removeItem(
                                     `${STORAGE_PREFIX}prod_complete_email_sent`,
                                   );
+                                } else if (step.id === 9) {
+                                  localStorage.removeItem(
+                                    `${STORAGE_PREFIX}step_9_completed`,
+                                  );
                                 }
                                 updateSteps();
                               }
@@ -1582,12 +1612,15 @@ Thanks and regards`,
                                       ? "Deploy to Production"
                                       : step.id === 8
                                         ? "Create Release"
-                                        : "Execute"}
+                                        : step.id === 9
+                                          ? "Update Variables"
+                                          : "Execute"}
                               <ChevronRight className="w-4 h-4 ml-1" />
                             </Button>
                             {(step.id === 1 ||
                               step.id === 6 ||
-                              step.id === 8) && (
+                              step.id === 8 ||
+                              step.id === 9) && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -2351,6 +2384,24 @@ Thanks and regards`,
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Step 9: Update BUILD_VERSION Dialog */}
+      <BuildVersionUpdater
+        open={buildVersionDialog}
+        onOpenChange={setBuildVersionDialog}
+        repositories={project.repositories}
+        buildVersion={currentRelease?.releaseNumber || ""}
+        onComplete={() => {
+          // Mark step 9 as completed
+          if (currentRelease) {
+            updateReleaseStep(9, "completed");
+          } else {
+            saveToStorage("step_9_completed", true);
+            updateSteps();
+          }
+          setBuildVersionDialog(false);
+        }}
+      />
     </>
   );
 }

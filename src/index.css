@@ -822,6 +822,10 @@
     max-height: var(--radix-select-content-available-height);
   }
 
+  .max-h-\[80vh\] {
+    max-height: 80vh;
+  }
+
   .max-h-\[85vh\] {
     max-height: 85vh;
   }

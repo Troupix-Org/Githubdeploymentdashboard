@@ -523,3 +523,90 @@ export async function listEnvironments(
     return [];
   }
 }
+
+export interface GitHubVariable {
+  name: string;
+  value: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GitHubEnvironmentVariable extends GitHubVariable {
+  // Additional properties specific to environment variables
+}
+
+// List repository actions variables
+export async function listRepositoryVariables(
+  owner: string,
+  repo: string,
+): Promise<GitHubVariable[]> {
+  try {
+    const data = await githubFetch(
+      `/repos/${owner}/${repo}/actions/variables`,
+    );
+    return data.variables || [];
+  } catch (err) {
+    console.error('Failed to fetch repository variables:', err);
+    return [];
+  }
+}
+
+// List environment variables for a specific environment
+export async function listEnvironmentVariables(
+  owner: string,
+  repo: string,
+  environmentName: string,
+): Promise<GitHubEnvironmentVariable[]> {
+  try {
+    const data = await githubFetch(
+      `/repos/${owner}/${repo}/environments/${environmentName}/variables`,
+    );
+    return data.variables || [];
+  } catch (err) {
+    console.error('Failed to fetch environment variables:', err);
+    return [];
+  }
+}
+
+// Update repository variable
+export async function updateRepositoryVariable(
+  owner: string,
+  repo: string,
+  variableName: string,
+  value: string,
+): Promise<void> {
+  try {
+    await githubFetch(
+      `/repos/${owner}/${repo}/actions/variables/${variableName}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ value }),
+      },
+    );
+  } catch (err) {
+    console.error('Failed to update repository variable:', err);
+    throw err;
+  }
+}
+
+// Update environment variable
+export async function updateEnvironmentVariable(
+  owner: string,
+  repo: string,
+  environmentName: string,
+  variableName: string,
+  value: string,
+): Promise<void> {
+  try {
+    await githubFetch(
+      `/repos/${owner}/${repo}/environments/${environmentName}/variables/${variableName}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ value }),
+      },
+    );
+  } catch (err) {
+    console.error('Failed to update environment variable:', err);
+    throw err;
+  }
+}

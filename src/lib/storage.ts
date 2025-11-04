@@ -466,6 +466,7 @@ export function createProductionRelease(projectId: string, customReleaseNumber?:
       { stepId: 6, status: 'pending' },
       { stepId: 7, status: 'pending' },
       { stepId: 8, status: 'pending' },
+      { stepId: 9, status: 'pending' },
     ],
     deploymentIds: [],
   };
