@@ -274,9 +274,16 @@ export async function listReleases(
 export async function verifyToken(): Promise<{
   login: string;
   name: string;
+  avatar_url: string;
+  email?: string;
 }> {
   const data = await githubFetch("/user");
-  return { login: data.login, name: data.name };
+  return { 
+    login: data.login, 
+    name: data.name, 
+    avatar_url: data.avatar_url,
+    email: data.email 
+  };
 }
 
 export async function getCommit(
@@ -312,17 +319,30 @@ export async function getLatestBuildForBranch(
 
     const latestRun = runs[0];
     
-    // Try to extract build number from the run name or get commit details
-    const commit = await getCommit(owner, repo, latestRun.head_sha);
+    // Use head_commit from the run response if available
+    let commit: { sha: string; message: string; author: string; date: string } | undefined;
+    
+    if (latestRun.head_commit) {
+      commit = {
+        sha: latestRun.head_sha.substring(0, 7),
+        message: latestRun.head_commit.message.split('\n')[0], // First line only
+        author: latestRun.head_commit.author.name,
+        date: latestRun.created_at, // Use run created_at as fallback
+      };
+    } else {
+      // Fallback: fetch commit details if not included in run
+      const commitData = await getCommit(owner, repo, latestRun.head_sha);
+      commit = {
+        sha: latestRun.head_sha.substring(0, 7),
+        message: commitData.commit.message.split('\n')[0],
+        author: commitData.commit.author.name,
+        date: commitData.commit.author.date,
+      };
+    }
     
     return {
       buildNumber: latestRun.name,
-      commit: {
-        sha: latestRun.head_sha.substring(0, 7),
-        message: commit.commit.message.split('\n')[0], // First line only
-        author: commit.commit.author.name,
-        date: commit.commit.author.date,
-      },
+      commit,
       status: latestRun.status,
       conclusion: latestRun.conclusion,
       url: latestRun.html_url,
@@ -359,38 +379,29 @@ export async function getLatestBuildsForBranch(
       return [];
     }
 
-    const builds = await Promise.all(
-      runs.map(async (run) => {
-        try {
-          const commit = await getCommit(owner, repo, run.head_sha);
-          
-          return {
-            buildNumber: run.name,
-            commit: {
-              sha: run.head_sha.substring(0, 7),
-              message: commit.commit.message.split('\n')[0], // First line only
-              author: commit.commit.author.name,
-              date: commit.commit.author.date,
-            },
-            status: run.status,
-            conclusion: run.conclusion,
-            url: run.html_url,
-            runId: run.id,
-            createdAt: run.created_at,
-          };
-        } catch (err) {
-          console.error(`Failed to get commit for run ${run.id}:`, err);
-          return {
-            buildNumber: run.name,
-            status: run.status,
-            conclusion: run.conclusion,
-            url: run.html_url,
-            runId: run.id,
-            createdAt: run.created_at,
-          };
-        }
-      })
-    );
+    // Use head_commit from runs response instead of making individual API calls
+    const builds = runs.map((run) => {
+      let commit: { sha: string; message: string; author: string; date: string } | undefined;
+      
+      if (run.head_commit) {
+        commit = {
+          sha: run.head_sha.substring(0, 7),
+          message: run.head_commit.message.split('\n')[0], // First line only
+          author: run.head_commit.author.name,
+          date: run.created_at, // Use run created_at as fallback
+        };
+      }
+      
+      return {
+        buildNumber: run.name,
+        commit,
+        status: run.status,
+        conclusion: run.conclusion,
+        url: run.html_url,
+        runId: run.id,
+        createdAt: run.created_at,
+      };
+    });
 
     return builds;
   } catch (err) {

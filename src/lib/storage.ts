@@ -160,6 +160,14 @@ export async function deleteProject(id: string): Promise<void> {
 
 // GitHub token storage (localStorage)
 const TOKEN_KEY = 'github_token';
+const USER_KEY = 'github_user';
+
+export interface GitHubUser {
+  login: string;
+  name: string;
+  avatar_url: string;
+  email?: string;
+}
 
 export function saveGitHubToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
@@ -171,6 +179,16 @@ export function getGitHubToken(): string | null {
 
 export function clearGitHubToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY); // Also clear user data on logout
+}
+
+export function saveGitHubUser(user: GitHubUser): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function getGitHubUser(): GitHubUser | null {
+  const data = localStorage.getItem(USER_KEY);
+  return data ? JSON.parse(data) : null;
 }
 
 // Deployments storage (localStorage for POC)
