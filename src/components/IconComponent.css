@@ -1,0 +1,33 @@
+/* Icon color filters */
+:root {
+  --icon-color-primary: invert(39%) sepia(40%) saturate(1000%)
+    hue-rotate(235deg) brightness(90%) contrast(98%);
+  --icon-color-success: invert(48%) sepia(79%) saturate(2476%)
+    hue-rotate(100deg) brightness(118%) contrast(119%);
+  --icon-color-danger: invert(27%) sepia(51%) saturate(2878%) hue-rotate(346deg)
+    brightness(104%) contrast(97%);
+  --icon-color-warning: invert(77%) sepia(38%) saturate(5392%)
+    hue-rotate(359deg) brightness(105%) contrast(104%);
+  --icon-color-info: invert(50%) sepia(85%) saturate(2282%) hue-rotate(166deg)
+    brightness(90%) contrast(101%);
+  --icon-color-light: invert(100%) sepia(0%) saturate(0%) hue-rotate(93deg)
+    brightness(103%) contrast(103%);
+  --icon-color-dark: invert(0%) sepia(0%) saturate(0%) hue-rotate(324deg)
+    brightness(96%) contrast(104%);
+  --icon-color-muted: invert(50%) sepia(9%) saturate(368%) hue-rotate(167deg)
+    brightness(94%) contrast(92%);
+}
+
+.icon-component {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-component:hover {
+  opacity: 0.8;
+}
+
+.icon-component:active {
+  transform: scale(0.95);
+}

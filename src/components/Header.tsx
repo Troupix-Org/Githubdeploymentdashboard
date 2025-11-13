@@ -1,8 +1,8 @@
-import { Button } from './ui/button';
-import { LogOut, User } from 'lucide-react';
-import { clearGitHubToken, GitHubUser } from '../lib/storage';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import logoImage from 'figma:asset/4663c9c6000bb04f5ce0fd6c583c254cb3ccea86.png';
+import { Button } from "./ui/button";
+import { LogOut, User } from "lucide-react";
+import { clearGitHubToken, GitHubUser } from "../lib/storage";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import IconComponent from "./IconComponent";
 
 interface HeaderProps {
   user: GitHubUser | null;
@@ -11,41 +11,69 @@ interface HeaderProps {
 
 export function Header({ user, onLogout }: HeaderProps) {
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout? This will clear your GitHub token.')) {
+    if (
+      confirm(
+        "Are you sure you want to logout? This will clear your GitHub token."
+      )
+    ) {
       clearGitHubToken();
       onLogout();
     }
   };
 
   return (
-    <header className="border-b-2" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)', borderColor: '#e9d5ff' }}>
+    <header
+      className="border-b-2"
+      style={{
+        background: "linear-gradient(to right, #ffffff, #d4bcecff)",
+        borderColor: "#e9d5ff",
+      }}
+    >
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}>
-              <img src={logoImage} alt="Deploy Manager Logo" className="w-8 h-8" />
+            <div
+              className="p-2 rounded-lg flex items-center justify-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, #ffffffff 0%, #a855f7 100%)",
+                boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+              }}
+            >
+              <IconComponent name="image2vector" color="dark" size="xl" />
             </div>
             <div>
-              <h1 style={{ color: '#6b21a8' }}>GitHub Deploy Manager</h1>
-              <p className="text-sm" style={{ color: '#7c3aed' }}>
+              <h1 style={{ color: "#6b21a8" }}>GitHub Deploy Manager</h1>
+              <p className="text-sm" style={{ color: "#a855f7" }}>
                 Manage your deployments and releases
               </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             {user && (
-              <div className="flex items-center gap-3 px-4 py-2 rounded-lg border" style={{ background: '#ffffff', borderColor: '#e9d5ff' }}>
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-lg border"
+                style={{ background: "#ffffff", borderColor: "#e9d5ff" }}
+              >
                 <Avatar className="w-8 h-8">
-                  <AvatarImage src={user.avatar_url} alt={user.name || user.login} />
-                  <AvatarFallback style={{ background: '#e9d5ff', color: '#7c3aed' }}>
+                  <AvatarImage
+                    src={user.avatar_url}
+                    alt={user.name || user.login}
+                  />
+                  <AvatarFallback
+                    style={{ background: "#e9d5ff", color: "#7c3aed" }}
+                  >
                     <User className="w-4 h-4" />
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium" style={{ color: '#6b21a8' }}>
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: "#6b21a8" }}
+                  >
                     {user.name || user.login}
                   </span>
-                  <span className="text-xs" style={{ color: '#7c3aed' }}>
+                  <span className="text-xs" style={{ color: "#7c3aed" }}>
                     @{user.login}
                   </span>
                 </div>
@@ -56,8 +84,8 @@ export function Header({ user, onLogout }: HeaderProps) {
               onClick={handleLogout}
               className="hover:bg-purple-50"
             >
-              <LogOut className="w-4 h-4 mr-2" style={{ color: '#7c3aed' }} />
-              <span style={{ color: '#7c3aed' }}>Logout</span>
+              <LogOut className="w-4 h-4 mr-2" style={{ color: "#7c3aed" }} />
+              <span style={{ color: "#7c3aed" }}>Logout</span>
             </Button>
           </div>
         </div>
