@@ -1239,20 +1239,8 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
             <div className="pt-2">
               <Button
                 onClick={() => {
-                  // Intelligently select pipelines that have build numbers (if required)
-                  const pipelinesWithValidInputs = project.pipelines.filter(p => {
-                    const allInputs = workflowInputs[p.id] || [];
-                    const buildNumberInput = allInputs.find(input => input.name === 'build_number');
-                    
-                    // If build_number is required, check if it's present
-                    if (buildNumberInput) {
-                      return inputValues[p.id]?.build_number || buildNumbers[p.id];
-                    }
-                    // If no build_number required, pipeline is valid
-                    return true;
-                  });
-                  
-                  setSelectedPipelines(pipelinesWithValidInputs.map(p => p.id));
+                  // Select all pipelines by default
+                  setSelectedPipelines(project.pipelines.map(p => p.id));
                   setEditingSelection(true); // Open in edit mode
                   setShowDeployAllDialog(true);
                 }}
@@ -1570,7 +1558,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
       {/* Deploy All Confirmation Dialog */}
       <AlertDialog open={showDeployAllDialog} onOpenChange={setShowDeployAllDialog}>
-        <AlertDialogContent className="max-w-3xl" style={{ background: '#ffffff' }}>
+        <AlertDialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" style={{ background: '#ffffff' }}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
               <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
@@ -1581,7 +1569,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1">
             {/* Deployment Summary Table */}
             <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
               <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
@@ -1645,7 +1633,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                       // Check if this pipeline requires build_number
                       const allInputs = workflowInputs[pipeline.id] || [];
                       const buildNumberInput = allInputs.find(input => input.name === 'build_number');
-                      const isDisabled = buildNumberInput && !buildNumber;
                       
                       return (
                         <TableRow 
@@ -1668,7 +1655,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                                     setSelectedPipelines(prev => [...prev, pipeline.id]);
                                   }
                                 }}
-                                disabled={isDisabled}
                               />
                             </TableCell>
                           )}
