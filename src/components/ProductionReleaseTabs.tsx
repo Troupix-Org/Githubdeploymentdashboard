@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
-import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp, GitCommit, ExternalLink, Clock } from 'lucide-react';
+import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp, GitCommit, ExternalLink, Clock, FileText } from 'lucide-react';
 import { 
   Project, 
   Deployment, 
@@ -19,6 +19,7 @@ import {
 import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, listEnvironments, getLatestBuildsForBranch } from '../lib/github';
 import { ProductionReleaseProcess } from './ProductionReleaseProcess';
 import { DeploymentStatusSection } from './DeploymentStatusSection';
+import { ReportGenerator } from './ReportGenerator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Input } from './ui/input';
@@ -104,6 +105,9 @@ export function ProductionReleaseTabs({
   // Prepare Inputs Dialog
   const [showPrepareInputsDialog, setShowPrepareInputsDialog] = useState(false);
   const [preparedInputs, setPreparedInputs] = useState<{ [pipelineId: string]: Record<string, any> }>({});
+  
+  // Report Generator Dialog
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   useEffect(() => {
     loadReleases();
@@ -282,7 +286,12 @@ export function ProductionReleaseTabs({
     }
 
     const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-    if (!buildNumber) {
+    
+    // Only validate build_number if the workflow defines it as an input
+    const allInputs = workflowInputs[pipelineId] || [];
+    const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+    
+    if (buildNumberInput && !buildNumber) {
       setError(`Please enter a build number for ${pipeline.name}`);
       return;
     }
@@ -737,14 +746,30 @@ export function ProductionReleaseTabs({
 
         {releases.map((release) => (
           <TabsContent key={release.id} value={release.id} className="mt-0">
-            <div className="mb-4 flex items-center gap-2">
-              <h3 className="text-lg" style={{ color: '#e9d5ff' }}>
-                Release {release.releaseNumber}
-              </h3>
-              {getStatusBadge(release.status)}
-              <span className="text-sm" style={{ color: '#94a3b8' }}>
-                • Created {new Date(release.createdAt).toLocaleDateString()}
-              </span>
+            <div className="mb-4 flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg" style={{ color: '#e9d5ff' }}>
+                  Release {release.releaseNumber}
+                </h3>
+                {getStatusBadge(release.status)}
+                <span className="text-sm" style={{ color: '#94a3b8' }}>
+                  • Created {new Date(release.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              
+              {/* Generate Report Button - Only show when release is completed */}
+              {release.buildVersionsUpdated && (
+                <Button
+                  onClick={() => setShowReportDialog(true)}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  style={{ borderColor: '#a78bfa', color: '#a78bfa' }}
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Report
+                </Button>
+              )}
             </div>
             
             <div className="space-y-4">
@@ -1470,6 +1495,19 @@ export function ProductionReleaseTabs({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Report Generator Dialog */}
+      {activeTab && (() => {
+        const currentRelease = releases.find(r => r.id === activeTab);
+        return currentRelease ? (
+          <ReportGenerator
+            open={showReportDialog}
+            onOpenChange={setShowReportDialog}
+            release={currentRelease}
+            project={project}
+          />
+        ) : null;
+      })()}
     </>
   );
 }

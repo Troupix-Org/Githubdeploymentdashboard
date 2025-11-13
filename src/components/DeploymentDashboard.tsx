@@ -477,7 +477,12 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
     // Get build_number from inputValues or buildNumbers (for backward compatibility)
     const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-    if (!buildNumber) {
+    
+    // Only validate build_number if the workflow defines it as an input
+    const allInputs = workflowInputs[pipelineId] || [];
+    const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+    
+    if (buildNumberInput && !buildNumber) {
       setError(`Please enter a build number for ${pipeline.name}`);
       return;
     }
@@ -582,7 +587,12 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
       setDeployProgress({ current: i + 1, total: pipelinesToDeploy.length });
 
       const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
-      if (!buildNumber) {
+      
+      // Only validate build_number if the workflow defines it as an input
+      const allInputs = workflowInputs[pipeline.id] || [];
+      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+      
+      if (buildNumberInput && !buildNumber) {
         results.failed++;
         results.errors.push(`${pipeline.name}: No build number specified`);
         continue;

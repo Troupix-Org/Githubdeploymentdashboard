@@ -58,15 +58,46 @@ export interface ProductionReleaseStep {
 export interface ProductionRelease {
   id: string;
   releaseNumber: string; // e.g., "2025.10.1" or custom format
+  name: string; // Display name for the release
   projectId: string;
-  createdAt: number;
+  createdAt: number | string;
   createdBy?: string;
   status: 'draft' | 'in_progress' | 'completed' | 'cancelled';
-  steps: ProductionReleaseStep[]; // State of the 8 steps
+  steps: ProductionReleaseStep[]; // State of the 9 steps
   deploymentIds: string[]; // Associated deployment IDs
   stagingDeploymentIds?: string[]; // Specific staging deployments
   productionDeploymentIds?: string[]; // Specific production deployments
   preparedInputs?: { [pipelineId: string]: Record<string, any> }; // Pre-prepared workflow inputs for all pipelines
+  deployments?: { [pipelineId: string]: { buildNumber?: string; runId?: string; deployedAt?: string } }; // Deployment details by pipeline
+  
+  // Individual step completion flags (for backward compatibility and convenience)
+  stagingDeployed?: boolean;
+  stagingDeployedAt?: string;
+  qaValidated?: boolean;
+  qaValidatedAt?: string;
+  qaValidatedBy?: string;
+  qaValidationNotes?: string;
+  poValidated?: boolean;
+  poValidatedAt?: string;
+  poValidatedBy?: string;
+  poValidationNotes?: string;
+  productionDeployed?: boolean;
+  productionDeployedAt?: string;
+  healthChecked?: boolean;
+  healthCheckedAt?: string;
+  complianceDocumented?: boolean;
+  complianceDocumentedAt?: string;
+  complianceFiles?: Array<{ name: string; size: number }>;
+  releaseNotesCreated?: boolean;
+  releaseNotesCreatedAt?: string;
+  releaseNotes?: string;
+  teamNotified?: boolean;
+  teamNotifiedAt?: string;
+  notificationMessage?: string;
+  buildVersionsUpdated?: boolean;
+  buildVersionsUpdatedAt?: string;
+  
+  // Legacy fields (keeping for backward compatibility)
   qaSignOff?: {
     testerName: string;
     testDate: string;
