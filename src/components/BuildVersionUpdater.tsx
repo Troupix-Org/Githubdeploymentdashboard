@@ -673,19 +673,17 @@ export function BuildVersionUpdater({
               >
                 Cancel
               </Button>
-              {allUpdated && (
-                <Button
-                  onClick={handleCompleteAndClose}
-                  className="text-white"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-                  }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Complete
-                </Button>
-              )}
+              <Button
+                onClick={handleCompleteAndClose}
+                className="text-white"
+                style={{
+                  background:
+                    'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+                }}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {allUpdated ? 'Complete' : 'Skip & Complete'}
+              </Button>
             </>
           )}
         </DialogFooter>

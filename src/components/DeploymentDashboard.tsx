@@ -477,7 +477,12 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
     // Get build_number from inputValues or buildNumbers (for backward compatibility)
     const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-    if (!buildNumber) {
+    
+    // Only validate build_number if the workflow defines it as an input
+    const allInputs = workflowInputs[pipelineId] || [];
+    const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+    
+    if (buildNumberInput && !buildNumber) {
       setError(`Please enter a build number for ${pipeline.name}`);
       return;
     }
@@ -582,7 +587,12 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
       setDeployProgress({ current: i + 1, total: pipelinesToDeploy.length });
 
       const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
-      if (!buildNumber) {
+      
+      // Only validate build_number if the workflow defines it as an input
+      const allInputs = workflowInputs[pipeline.id] || [];
+      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+      
+      if (buildNumberInput && !buildNumber) {
         results.failed++;
         results.errors.push(`${pipeline.name}: No build number specified`);
         continue;
@@ -1224,20 +1234,14 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
             );
           })}
 
-          {/* Deploy All Button */}
-          {project.pipelines.length > 1 && (
+          {/* Deploy Pipelines Button */}
+          {project.pipelines.length > 0 && (
             <div className="pt-2">
               <Button
                 onClick={() => {
-                  // Check if all pipelines have build numbers
-                  const allBuildNumbers = project.pipelines.every(p => 
-                    inputValues[p.id]?.build_number || buildNumbers[p.id]
-                  );
-                  if (!allBuildNumbers) {
-                    setError('Please enter build numbers for all pipelines');
-                    return;
-                  }
+                  // Select all pipelines by default
                   setSelectedPipelines(project.pipelines.map(p => p.id));
+                  setEditingSelection(true); // Open in edit mode
                   setShowDeployAllDialog(true);
                 }}
                 variant="outline"
@@ -1245,7 +1249,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                 style={{ borderColor: '#a855f7', color: '#7c3aed' }}
               >
                 <Rocket className="w-4 h-4 mr-2" />
-                Deploy All Pipelines ({project.pipelines.length})
+                Deploy Pipelines ({project.pipelines.length})
               </Button>
             </div>
           )}
@@ -1554,7 +1558,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
 
       {/* Deploy All Confirmation Dialog */}
       <AlertDialog open={showDeployAllDialog} onOpenChange={setShowDeployAllDialog}>
-        <AlertDialogContent className="max-w-3xl" style={{ background: '#ffffff' }}>
+        <AlertDialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" style={{ background: '#ffffff' }}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
               <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
@@ -1565,7 +1569,7 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1">
             {/* Deployment Summary Table */}
             <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
               <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
@@ -1625,6 +1629,11 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                       const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
                       const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
                       const isSelected = selectedPipelines.includes(pipeline.id);
+                      
+                      // Check if this pipeline requires build_number
+                      const allInputs = workflowInputs[pipeline.id] || [];
+                      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+                      
                       return (
                         <TableRow 
                           key={pipeline.id}
@@ -1646,7 +1655,6 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                                     setSelectedPipelines(prev => [...prev, pipeline.id]);
                                   }
                                 }}
-                                disabled={!buildNumber}
                               />
                             </TableCell>
                           )}
@@ -1685,12 +1693,18 @@ export function DeploymentDashboard({ project: initialProject, onBack }: Deploym
                             )}
                           </TableCell>
                           <TableCell>
-                            <code 
-                              className="px-2 py-1 rounded font-semibold text-sm" 
-                              style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
-                            >
-                              {buildNumber}
-                            </code>
+                            {buildNumber ? (
+                              <code 
+                                className="px-2 py-1 rounded font-semibold text-sm" 
+                                style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                              >
+                                {buildNumber}
+                              </code>
+                            ) : buildNumberInput ? (
+                              <span className="text-xs" style={{ color: '#ef4444' }}>Required</span>
+                            ) : (
+                              <span className="text-xs" style={{ color: '#9ca3af' }}>N/A</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       );

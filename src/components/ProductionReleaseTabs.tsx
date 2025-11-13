@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
-import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp, GitCommit, ExternalLink, Clock } from 'lucide-react';
+import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp, GitCommit, ExternalLink, Clock, FileText, Activity } from 'lucide-react';
 import { 
   Project, 
   Deployment, 
@@ -19,6 +19,7 @@ import {
 import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, listEnvironments, getLatestBuildsForBranch } from '../lib/github';
 import { ProductionReleaseProcess } from './ProductionReleaseProcess';
 import { DeploymentStatusSection } from './DeploymentStatusSection';
+import { ReportGenerator } from './ReportGenerator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Input } from './ui/input';
@@ -27,6 +28,8 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { Badge } from './ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Progress } from './ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -104,6 +107,16 @@ export function ProductionReleaseTabs({
   // Prepare Inputs Dialog
   const [showPrepareInputsDialog, setShowPrepareInputsDialog] = useState(false);
   const [preparedInputs, setPreparedInputs] = useState<{ [pipelineId: string]: Record<string, any> }>({});
+  
+  // Report Generator Dialog
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  
+  // Deploy All Dialog states
+  const [showDeployAllDialog, setShowDeployAllDialog] = useState(false);
+  const [selectedPipelines, setSelectedPipelines] = useState<string[]>([]);
+  const [editingSelection, setEditingSelection] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployProgress, setDeployProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
     loadReleases();
@@ -282,7 +295,12 @@ export function ProductionReleaseTabs({
     }
 
     const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-    if (!buildNumber) {
+    
+    // Only validate build_number if the workflow defines it as an input
+    const allInputs = workflowInputs[pipelineId] || [];
+    const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+    
+    if (buildNumberInput && !buildNumber) {
       setError(`Please enter a build number for ${pipeline.name}`);
       return;
     }
@@ -351,6 +369,120 @@ export function ProductionReleaseTabs({
     } finally {
       setLoadingPipelines(prev => ({ ...prev, [pipelineId]: false }));
     }
+  };
+
+  const handleConfirmDeployAll = async () => {
+    if (selectedPipelines.length === 0 || !activeTab) return;
+    
+    setIsDeploying(true);
+    setDeployProgress({ current: 0, total: selectedPipelines.length });
+    setError('');
+    setSuccess('');
+
+    const batchId = `batch-${Date.now()}`;
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < selectedPipelines.length; i++) {
+      const pipelineId = selectedPipelines[i];
+      const pipeline = project.pipelines.find(p => p.id === pipelineId);
+      
+      if (!pipeline) {
+        failCount++;
+        continue;
+      }
+
+      const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+      if (!repository) {
+        failCount++;
+        continue;
+      }
+
+      const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
+      
+      // Only validate build_number if the workflow defines it as an input
+      const allInputs = workflowInputs[pipelineId] || [];
+      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+      
+      if (buildNumberInput && !buildNumber) {
+        failCount++;
+        setError(prev => prev + `\nMissing build number for ${pipeline.name}`);
+        setDeployProgress({ current: i + 1, total: selectedPipelines.length });
+        continue;
+      }
+
+      try {
+        const workflowParams: Record<string, string> = {};
+        
+        const allInputs = inputValues[pipeline.id] || {};
+        for (const [key, value] of Object.entries(allInputs)) {
+          if (value !== undefined && value !== null && value !== '') {
+            workflowParams[key] = String(value);
+          }
+        }
+        
+        if (!workflowParams.build_number && buildNumber) {
+          workflowParams.build_number = buildNumber;
+        }
+
+        await triggerWorkflow(
+          repository.owner,
+          repository.repo,
+          pipeline.workflowFile,
+          pipeline.branch,
+          workflowParams
+        );
+
+        // Wait 3 seconds before finding the workflow run
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        const workflowRunId = await findTriggeredWorkflowRun(
+          repository.owner,
+          repository.repo,
+          pipeline.workflowFile,
+          buildNumber,
+          pipeline.branch,
+          pipeline.environment
+        );
+        
+        const deployment: Deployment = {
+          id: `${Date.now()}-${i}`,
+          projectId: project.id,
+          pipelineId: pipeline.id,
+          repositoryId: repository.id,
+          buildNumber,
+          branch: pipeline.branch,
+          environment: pipeline.environment,
+          batchId,
+          productionReleaseId: activeTab,
+          status: 'pending',
+          workflowRunId: workflowRunId || undefined,
+          startedAt: Date.now(),
+        };
+
+        saveDeployment(deployment);
+        successCount++;
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to deploy ${pipeline.name}:`, err);
+      }
+
+      setDeployProgress({ current: i + 1, total: selectedPipelines.length });
+    }
+
+    loadDeployments();
+    setIsDeploying(false);
+    
+    if (failCount === 0) {
+      setSuccess(`Successfully triggered ${successCount} deployment${successCount !== 1 ? 's' : ''}`);
+    } else {
+      setError(`Completed with ${successCount} success, ${failCount} failed`);
+    }
+    
+    setTimeout(() => {
+      setShowDeployAllDialog(false);
+      setEditingSelection(false);
+    }, 1500);
   };
 
   const handleCreateNewRelease = () => {
@@ -737,14 +869,30 @@ export function ProductionReleaseTabs({
 
         {releases.map((release) => (
           <TabsContent key={release.id} value={release.id} className="mt-0">
-            <div className="mb-4 flex items-center gap-2">
-              <h3 className="text-lg" style={{ color: '#e9d5ff' }}>
-                Release {release.releaseNumber}
-              </h3>
-              {getStatusBadge(release.status)}
-              <span className="text-sm" style={{ color: '#94a3b8' }}>
-                • Created {new Date(release.createdAt).toLocaleDateString()}
-              </span>
+            <div className="mb-4 flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg" style={{ color: '#e9d5ff' }}>
+                  Release {release.releaseNumber}
+                </h3>
+                {getStatusBadge(release.status)}
+                <span className="text-sm" style={{ color: '#94a3b8' }}>
+                  • Created {new Date(release.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              
+              {/* Generate Report Button - Only show when release is completed */}
+              {release.buildVersionsUpdated && (
+                <Button
+                  onClick={() => setShowReportDialog(true)}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  style={{ borderColor: '#a78bfa', color: '#a78bfa' }}
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Report
+                </Button>
+              )}
             </div>
             
             <div className="space-y-4">
@@ -1143,6 +1291,26 @@ export function ProductionReleaseTabs({
                         );
                       })}
 
+                      {/* Deploy Pipelines Button */}
+                      {project.pipelines.length > 0 && (
+                        <div className="pt-2">
+                          <Button
+                            onClick={() => {
+                              // Select all pipelines by default
+                              setSelectedPipelines(project.pipelines.map(p => p.id));
+                              setEditingSelection(true); // Open in edit mode
+                              setShowDeployAllDialog(true);
+                            }}
+                            variant="outline"
+                            className="w-full border-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50"
+                            style={{ borderColor: '#a855f7', color: '#7c3aed' }}
+                          >
+                            <Rocket className="w-4 h-4 mr-2" />
+                            Deploy Pipelines ({project.pipelines.length})
+                          </Button>
+                        </div>
+                      )}
+
                       {error && (
                         <Alert className="border-[#ef4444] bg-[#fef2f2]">
                           <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
@@ -1184,6 +1352,244 @@ export function ProductionReleaseTabs({
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Deploy All Confirmation Dialog */}
+      <AlertDialog open={showDeployAllDialog} onOpenChange={setShowDeployAllDialog}>
+        <AlertDialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" style={{ background: '#ffffff' }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
+              <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
+              Confirm Deployment - {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: '#6b7280' }}>
+              Review the deployment details below before proceeding. All pipelines will be deployed sequentially.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4 py-4 overflow-y-auto flex-1">
+            {/* Deployment Summary Table */}
+            <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
+              <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
+                <div className="font-semibold flex items-center gap-3" style={{ color: '#6b21a8' }}>
+                  <Activity className="w-4 h-4" />
+                  <span>Deployment Summary</span>
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs font-normal" 
+                    style={{ 
+                      background: '#ffffff', 
+                      color: selectedPipelines.length === project.pipelines.length ? '#10b981' : '#7c3aed', 
+                      border: `1px solid ${selectedPipelines.length === project.pipelines.length ? '#10b981' : '#c4b5fd'}` 
+                    }}
+                  >
+                    {selectedPipelines.length} / {project.pipelines.length} selected
+                  </Badge>
+                </div>
+                {!isDeploying && !editingSelection && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSelection(true)}
+                    className="text-xs h-7"
+                    style={{ color: '#7c3aed' }}
+                  >
+                    Edit Selection
+                  </Button>
+                )}
+                {editingSelection && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingSelection(false)}
+                    className="text-xs h-7"
+                    style={{ color: '#10b981' }}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Done
+                  </Button>
+                )}
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow style={{ background: '#fafafa' }}>
+                    {editingSelection && <TableHead className="w-12"></TableHead>}
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Pipeline</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Repository</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Branch</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Environment</TableHead>
+                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Build Number</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(editingSelection ? project.pipelines : project.pipelines.filter(p => selectedPipelines.includes(p.id)))
+                    .map((pipeline, index) => {
+                      const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
+                      const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
+                      const isSelected = selectedPipelines.includes(pipeline.id);
+                      
+                      // Check if this pipeline requires build_number
+                      const allInputs = workflowInputs[pipeline.id] || [];
+                      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
+                      
+                      return (
+                        <TableRow 
+                          key={pipeline.id}
+                          className="hover:bg-purple-50/30"
+                          style={{ 
+                            borderColor: '#f3e8ff',
+                            background: index % 2 === 0 ? '#ffffff' : '#fafafa',
+                            opacity: editingSelection && !isSelected ? 0.5 : 1
+                          }}
+                        >
+                          {editingSelection && (
+                            <TableCell className="w-12">
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => {
+                                  if (isSelected) {
+                                    setSelectedPipelines(prev => prev.filter(id => id !== pipeline.id));
+                                  } else {
+                                    setSelectedPipelines(prev => [...prev, pipeline.id]);
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell>
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs" 
+                              style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}
+                            >
+                              {pipeline.name}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm" style={{ color: '#7c3aed' }}>
+                              <FolderGit2 className="w-3.5 h-3.5" />
+                              {repo?.name || 'Unknown'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-xs font-mono" style={{ color: '#6b7280' }}>
+                              <GitBranch className="w-3 h-3" />
+                              {pipeline.branch}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {pipeline.environment ? (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs font-mono" 
+                                style={{ 
+                                  background: pipeline.environment === 'production' ? '#fef2f2' : '#f0fdf4',
+                                  color: pipeline.environment === 'production' ? '#dc2626' : '#16a34a',
+                                  borderColor: pipeline.environment === 'production' ? '#fca5a5' : '#86efac'
+                                }}
+                              >
+                                {pipeline.environment}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs" style={{ color: '#9ca3af' }}>-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {buildNumber ? (
+                              <code 
+                                className="px-2 py-1 rounded font-semibold text-sm" 
+                                style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                              >
+                                {buildNumber}
+                              </code>
+                            ) : buildNumberInput ? (
+                              <span className="text-xs" style={{ color: '#ef4444' }}>Required</span>
+                            ) : (
+                              <span className="text-xs" style={{ color: '#9ca3af' }}>N/A</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Warning if no pipelines selected */}
+            {!isDeploying && selectedPipelines.length === 0 && (
+              <Alert className="border-[#ef4444] bg-[#fef2f2]">
+                <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
+                <AlertDescription style={{ color: '#dc2626' }}>
+                  No pipelines selected. Please select at least one pipeline to deploy.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Warning if not all pipelines selected */}
+            {!isDeploying && selectedPipelines.length > 0 && selectedPipelines.length < project.pipelines.length && (
+              <Alert className="border-[#f59e0b] bg-[#fffbeb]">
+                <AlertCircle className="h-4 w-4" style={{ color: '#f59e0b' }} />
+                <AlertDescription style={{ color: '#92400e' }}>
+                  {project.pipelines.length - selectedPipelines.length} pipeline{project.pipelines.length - selectedPipelines.length !== 1 ? 's' : ''} will not be deployed.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Info message */}
+            {!isDeploying && selectedPipelines.length > 0 && (
+              <Alert className="border-[#7c3aed] bg-[#faf5ff]">
+                <Info className="h-4 w-4" style={{ color: '#7c3aed' }} />
+                <AlertDescription style={{ color: '#6b21a8' }}>
+                  <span className="text-xs">
+                    All deployments will be grouped in a single batch. The system will wait 3 seconds after triggering each workflow before identifying the run.
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Progress Bar */}
+            {isDeploying && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm" style={{ color: '#6b7280' }}>
+                  <span>Deploying pipelines...</span>
+                  <span>{deployProgress.current} / {deployProgress.total}</span>
+                </div>
+                <Progress 
+                  value={(deployProgress.current / deployProgress.total) * 100} 
+                  className="h-2"
+                />
+              </div>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              disabled={isDeploying}
+              className="border-2"
+              style={{ borderColor: '#d1d5db', color: '#374151' }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeployAll}
+              disabled={selectedPipelines.length === 0 || isDeploying}
+              className="text-white"
+              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
+            >
+              {isDeploying ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Deploying {deployProgress.current} / {deployProgress.total}...
+                </>
+              ) : (
+                <>
+                  <Rocket className="w-4 h-4 mr-2" />
+                  Confirm & Deploy {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* New Release Dialog */}
       <Dialog open={showNewReleaseDialog} onOpenChange={setShowNewReleaseDialog}>
@@ -1470,6 +1876,19 @@ export function ProductionReleaseTabs({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Report Generator Dialog */}
+      {activeTab && (() => {
+        const currentRelease = releases.find(r => r.id === activeTab);
+        return currentRelease ? (
+          <ReportGenerator
+            open={showReportDialog}
+            onOpenChange={setShowReportDialog}
+            release={currentRelease}
+            project={project}
+          />
+        ) : null;
+      })()}
     </>
   );
 }

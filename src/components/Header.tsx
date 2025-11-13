@@ -1,7 +1,8 @@
 import { Button } from './ui/button';
-import { Github, LogOut, User } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { clearGitHubToken, GitHubUser } from '../lib/storage';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import logoImage from 'figma:asset/4663c9c6000bb04f5ce0fd6c583c254cb3ccea86.png';
 
 interface HeaderProps {
   user: GitHubUser | null;
@@ -21,8 +22,8 @@ export function Header({ user, onLogout }: HeaderProps) {
       <div className="container mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}>
-              <Github className="w-6 h-6" style={{ color: '#ffffff' }} />
+            <div className="p-2 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}>
+              <img src={logoImage} alt="Deploy Manager Logo" className="w-8 h-8" />
             </div>
             <div>
               <h1 style={{ color: '#6b21a8' }}>GitHub Deploy Manager</h1>
