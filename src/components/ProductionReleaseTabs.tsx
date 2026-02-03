@@ -1336,13 +1336,19 @@ export function ProductionReleaseTabs({
                                     <div
                                       className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all"
                                       style={{ color: "#7c3aed" }}
-                                      onClick={() =>
+                                      onClick={() => {
                                         handleUseBuild(
                                           pipeline.id,
-                                          latestBuilds[pipeline.id]
-                                            ?.buildNumber || "",
-                                        )
-                                      }
+                                          latestBuilds[
+                                            pipeline.id
+                                          ]?.buildNumber?.match(
+                                            /(\d+(\.){0,1})+/,
+                                          )?.[0] ||
+                                            latestBuilds[pipeline.id]
+                                              ?.buildNumber ||
+                                            "",
+                                        );
+                                      }}
                                       title={`Click to use latest build from ${pipeline.branch}`}
                                     >
                                       <GitBranch className="w-3 h-3" />
@@ -1450,7 +1456,11 @@ export function ProductionReleaseTabs({
                                           onClick={() => {
                                             handleUseBuild(
                                               pipeline.id,
-                                              build.buildNumber,
+                                              build.buildNumber.match(
+                                                /(\d+(\.){0,1})+/,
+                                              )?.[0] ||
+                                                build.buildNumber ||
+                                                "",
                                             );
                                             setShowBuildHistory((prev) => ({
                                               ...prev,
