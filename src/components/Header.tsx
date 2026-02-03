@@ -13,7 +13,7 @@ export function Header({ user, onLogout }: HeaderProps) {
   const handleLogout = () => {
     if (
       confirm(
-        "Are you sure you want to logout? This will clear your GitHub token."
+        "Are you sure you want to logout? This will clear your GitHub token.",
       )
     ) {
       clearGitHubToken();

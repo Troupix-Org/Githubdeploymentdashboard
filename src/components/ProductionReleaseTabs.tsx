@@ -1,10 +1,31 @@
-import { useState, useEffect } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Button } from './ui/button';
-import { Plus, X, CheckCircle2, Loader2, Circle, XCircle, Rocket, RefreshCw, AlertCircle, Info, Star, FolderGit2, GitBranch, ChevronDown, ChevronUp, GitCommit, ExternalLink, Clock, FileText, Activity } from 'lucide-react';
-import { 
-  Project, 
-  Deployment, 
+import { useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Button } from "./ui/button";
+import {
+  Plus,
+  X,
+  CheckCircle2,
+  Loader2,
+  Circle,
+  XCircle,
+  Rocket,
+  RefreshCw,
+  AlertCircle,
+  Info,
+  Star,
+  FolderGit2,
+  GitBranch,
+  ChevronDown,
+  ChevronUp,
+  GitCommit,
+  ExternalLink,
+  Clock,
+  FileText,
+  Activity,
+} from "lucide-react";
+import {
+  Project,
+  Deployment,
   ProductionRelease,
   Repository,
   getProductionReleasesByProject,
@@ -15,21 +36,51 @@ import {
   saveProject,
   saveDeployment,
   saveProductionRelease,
-} from '../lib/storage';
-import { triggerWorkflow, getWorkflowInputs, WorkflowInput, findTriggeredWorkflowRun, listEnvironments, getLatestBuildsForBranch } from '../lib/github';
-import { ProductionReleaseProcess } from './ProductionReleaseProcess';
-import { DeploymentStatusSection } from './DeploymentStatusSection';
-import { ReportGenerator } from './ReportGenerator';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Alert, AlertDescription } from './ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Checkbox } from './ui/checkbox';
-import { Badge } from './ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Progress } from './ui/progress';
+} from "../lib/storage";
+import {
+  triggerWorkflow,
+  getWorkflowInputs,
+  WorkflowInput,
+  findTriggeredWorkflowRun,
+  listEnvironments,
+  getLatestBuildsForBranch,
+} from "../lib/github";
+import { ProductionReleaseProcess } from "./ProductionReleaseProcess";
+import { DeploymentStatusSection } from "./DeploymentStatusSection";
+import { ReportGenerator } from "./ReportGenerator";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Alert, AlertDescription } from "./ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Checkbox } from "./ui/checkbox";
+import { Badge } from "./ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table";
+import { Progress } from "./ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +88,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from './ui/dialog';
+} from "./ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,7 +98,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from './ui/alert-dialog';
+} from "./ui/alert-dialog";
 
 interface ProductionReleaseTabsProps {
   project: Project;
@@ -57,35 +108,50 @@ interface ProductionReleaseTabsProps {
   onProjectUpdate?: (project: Project) => void;
 }
 
-export function ProductionReleaseTabs({ 
-  project, 
+export function ProductionReleaseTabs({
+  project,
   deployments: propDeployments,
   onDeployToProduction,
   onCreateRelease,
-  onProjectUpdate
+  onProjectUpdate,
 }: ProductionReleaseTabsProps) {
   const [releases, setReleases] = useState<ProductionRelease[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>("");
   const [showNewReleaseDialog, setShowNewReleaseDialog] = useState(false);
-  const [newReleaseNumber, setNewReleaseNumber] = useState('');
+  const [newReleaseNumber, setNewReleaseNumber] = useState("");
   const [useAutoNumber, setUseAutoNumber] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [releaseToDelete, setReleaseToDelete] = useState<string | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>(propDeployments);
-  
+
   // Deploy Section states
-  const [buildNumbers, setBuildNumbers] = useState<{ [pipelineId: string]: string }>({});
-  const [loadingPipelines, setLoadingPipelines] = useState<{ [pipelineId: string]: boolean }>({});
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [workflowInputs, setWorkflowInputs] = useState<{ [pipelineId: string]: WorkflowInput[] }>({});
-  const [inputValues, setInputValues] = useState<{ [pipelineId: string]: Record<string, any> }>({});
+  const [buildNumbers, setBuildNumbers] = useState<{
+    [pipelineId: string]: string;
+  }>({});
+  const [loadingPipelines, setLoadingPipelines] = useState<{
+    [pipelineId: string]: boolean;
+  }>({});
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [workflowInputs, setWorkflowInputs] = useState<{
+    [pipelineId: string]: WorkflowInput[];
+  }>({});
+  const [inputValues, setInputValues] = useState<{
+    [pipelineId: string]: Record<string, any>;
+  }>({});
   const [deployOpen, setDeployOpen] = useState(true);
-  const [environments, setEnvironments] = useState<{ [repositoryId: string]: string[] }>({});
-  
+  const [environments, setEnvironments] = useState<{
+    [repositoryId: string]: string[];
+  }>({});
+
   // Build history states
   type BuildInfo = {
-    commit: { sha: string; message: string; author: string; date: string } | null;
+    commit: {
+      sha: string;
+      message: string;
+      author: string;
+      date: string;
+    } | null;
     buildNumber: string | null;
     status: string | null;
     conclusion: string | null;
@@ -101,22 +167,31 @@ export function ProductionReleaseTabs({
     url: string;
     createdAt: string;
   };
-  const [latestBuilds, setLatestBuilds] = useState<{ [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] } }>({});
-  const [showBuildHistory, setShowBuildHistory] = useState<{ [pipelineId: string]: boolean }>({});
-  
+  const [latestBuilds, setLatestBuilds] = useState<{
+    [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] };
+  }>({});
+  const [showBuildHistory, setShowBuildHistory] = useState<{
+    [pipelineId: string]: boolean;
+  }>({});
+
   // Prepare Inputs Dialog
   const [showPrepareInputsDialog, setShowPrepareInputsDialog] = useState(false);
-  const [preparedInputs, setPreparedInputs] = useState<{ [pipelineId: string]: Record<string, any> }>({});
-  
+  const [preparedInputs, setPreparedInputs] = useState<{
+    [pipelineId: string]: Record<string, any>;
+  }>({});
+
   // Report Generator Dialog
   const [showReportDialog, setShowReportDialog] = useState(false);
-  
+
   // Deploy All Dialog states
   const [showDeployAllDialog, setShowDeployAllDialog] = useState(false);
   const [selectedPipelines, setSelectedPipelines] = useState<string[]>([]);
   const [editingSelection, setEditingSelection] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deployProgress, setDeployProgress] = useState({ current: 0, total: 0 });
+  const [deployProgress, setDeployProgress] = useState({
+    current: 0,
+    total: 0,
+  });
 
   useEffect(() => {
     loadReleases();
@@ -140,24 +215,26 @@ export function ProductionReleaseTabs({
 
   // Load prepared inputs when active tab changes
   useEffect(() => {
-    const currentRelease = releases.find(r => r.id === activeTab);
+    const currentRelease = releases.find((r) => r.id === activeTab);
     if (currentRelease?.preparedInputs) {
       // Load prepared inputs into inputValues
       const updatedInputValues = { ...inputValues };
       const updatedBuildNumbers = { ...buildNumbers };
-      
-      Object.entries(currentRelease.preparedInputs).forEach(([pipelineId, inputs]) => {
-        updatedInputValues[pipelineId] = {
-          ...updatedInputValues[pipelineId],
-          ...inputs,
-        };
-        
-        // Also update build numbers state if present
-        if (inputs.build_number) {
-          updatedBuildNumbers[pipelineId] = inputs.build_number;
-        }
-      });
-      
+
+      Object.entries(currentRelease.preparedInputs).forEach(
+        ([pipelineId, inputs]) => {
+          updatedInputValues[pipelineId] = {
+            ...updatedInputValues[pipelineId],
+            ...inputs,
+          };
+
+          // Also update build numbers state if present
+          if (inputs.build_number) {
+            updatedBuildNumbers[pipelineId] = inputs.build_number;
+          }
+        },
+      );
+
       setInputValues(updatedInputValues);
       setBuildNumbers(updatedBuildNumbers);
       setPreparedInputs(currentRelease.preparedInputs);
@@ -172,7 +249,10 @@ export function ProductionReleaseTabs({
 
     // Set active tab to the most recent in-progress or draft release, or the first one
     if (sorted.length > 0) {
-      const activeRelease = sorted.find(r => r.status === 'in_progress' || r.status === 'draft') || sorted[0];
+      const activeRelease =
+        sorted.find(
+          (r) => r.status === "in_progress" || r.status === "draft",
+        ) || sorted[0];
       setActiveTab(activeRelease.id);
     }
   };
@@ -188,9 +268,12 @@ export function ProductionReleaseTabs({
     for (const repository of project.repositories) {
       try {
         const envs = await listEnvironments(repository.owner, repository.repo);
-        loadedEnvironments[repository.id] = envs.map(env => env.name);
+        loadedEnvironments[repository.id] = envs.map((env) => env.name);
       } catch (err) {
-        console.error(`Failed to load environments for ${repository.owner}/${repository.repo}:`, err);
+        console.error(
+          `Failed to load environments for ${repository.owner}/${repository.repo}:`,
+          err,
+        );
         loadedEnvironments[repository.id] = [];
       }
     }
@@ -198,19 +281,21 @@ export function ProductionReleaseTabs({
 
     // Then load workflow inputs for each pipeline
     for (const pipeline of project.pipelines) {
-      const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+      const repository = project.repositories.find(
+        (r) => r.id === pipeline.repositoryId,
+      );
       if (!repository) continue;
 
       try {
         const inputs = await getWorkflowInputs(
           repository.owner,
           repository.repo,
-          pipeline.workflowFile
+          pipeline.workflowFile,
         );
-        
+
         // For environment type inputs, add available environments as options
-        const enrichedInputs = inputs.map(input => {
-          if (input.type === 'environment' && !input.options) {
+        const enrichedInputs = inputs.map((input) => {
+          if (input.type === "environment" && !input.options) {
             return {
               ...input,
               options: loadedEnvironments[repository.id] || [],
@@ -218,38 +303,50 @@ export function ProductionReleaseTabs({
           }
           return input;
         });
-        
-        setWorkflowInputs(prev => ({
+
+        setWorkflowInputs((prev) => ({
           ...prev,
           [pipeline.id]: enrichedInputs,
         }));
 
         // Initialize input values with defaults
         const defaultValues: Record<string, any> = {};
-        enrichedInputs.forEach(input => {
-          if (pipeline.defaultInputValues && pipeline.defaultInputValues[input.name] !== undefined) {
+        enrichedInputs.forEach((input) => {
+          if (
+            pipeline.defaultInputValues &&
+            pipeline.defaultInputValues[input.name] !== undefined
+          ) {
             defaultValues[input.name] = pipeline.defaultInputValues[input.name];
           } else if (input.default !== undefined) {
             defaultValues[input.name] = input.default;
-          } else if (input.type === 'boolean') {
+          } else if (input.type === "boolean") {
             defaultValues[input.name] = false;
           } else {
-            defaultValues[input.name] = '';
+            defaultValues[input.name] = "";
           }
         });
-        
-        setInputValues(prev => ({
+
+        setInputValues((prev) => ({
           ...prev,
           [pipeline.id]: defaultValues,
         }));
       } catch (err) {
-        console.error(`Failed to load workflow inputs for ${pipeline.name}:`, err);
+        console.error(
+          `Failed to load workflow inputs for ${pipeline.name}:`,
+          err,
+        );
       }
     }
   };
 
-  const handleSaveDefaultValue = async (pipelineId: string, inputName: string, value: any) => {
-    const pipelineIndex = project.pipelines.findIndex(p => p.id === pipelineId);
+  const handleSaveDefaultValue = async (
+    pipelineId: string,
+    inputName: string,
+    value: any,
+  ) => {
+    const pipelineIndex = project.pipelines.findIndex(
+      (p) => p.id === pipelineId,
+    );
     if (pipelineIndex === -1) return;
 
     const updatedPipeline = {
@@ -275,52 +372,57 @@ export function ProductionReleaseTabs({
         onProjectUpdate(updatedProject);
       }
       setSuccess(`Default value saved for ${inputName}`);
-      setTimeout(() => setSuccess(''), 2000);
+      setTimeout(() => setSuccess(""), 2000);
     } catch (err) {
-      setError('Failed to save default value');
+      setError("Failed to save default value");
     }
   };
 
   const handleDeploy = async (pipelineId: string, releaseId: string) => {
-    const pipeline = project.pipelines.find(p => p.id === pipelineId);
+    const pipeline = project.pipelines.find((p) => p.id === pipelineId);
     if (!pipeline) {
-      setError('Pipeline not found');
+      setError("Pipeline not found");
       return;
     }
 
-    const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+    const repository = project.repositories.find(
+      (r) => r.id === pipeline.repositoryId,
+    );
     if (!repository) {
-      setError('Repository not found for this pipeline');
+      setError("Repository not found for this pipeline");
       return;
     }
 
-    const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-    
+    const buildNumber =
+      inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
+
     // Only validate build_number if the workflow defines it as an input
     const allInputs = workflowInputs[pipelineId] || [];
-    const buildNumberInput = allInputs.find(input => input.name === 'build_number');
-    
+    const buildNumberInput = allInputs.find(
+      (input) => input.name === "build_number",
+    );
+
     if (buildNumberInput && !buildNumber) {
       setError(`Please enter a build number for ${pipeline.name}`);
       return;
     }
 
-    setLoadingPipelines(prev => ({ ...prev, [pipelineId]: true }));
-    setError('');
-    setSuccess('');
+    setLoadingPipelines((prev) => ({ ...prev, [pipelineId]: true }));
+    setError("");
+    setSuccess("");
 
     const batchId = `batch-${Date.now()}`;
 
     try {
       const workflowParams: Record<string, string> = {};
-      
+
       const allInputs = inputValues[pipeline.id] || {};
       for (const [key, value] of Object.entries(allInputs)) {
-        if (value !== undefined && value !== null && value !== '') {
+        if (value !== undefined && value !== null && value !== "") {
           workflowParams[key] = String(value);
         }
       }
-      
+
       if (!workflowParams.build_number) {
         workflowParams.build_number = buildNumber;
       }
@@ -330,10 +432,12 @@ export function ProductionReleaseTabs({
         repository.repo,
         pipeline.workflowFile,
         pipeline.branch,
-        workflowParams
+        workflowParams,
       );
 
-      setSuccess(`Workflow triggered for ${pipeline.name}. Locating workflow run...`);
+      setSuccess(
+        `Workflow triggered for ${pipeline.name}. Locating workflow run...`,
+      );
 
       const workflowRunId = await findTriggeredWorkflowRun(
         repository.owner,
@@ -341,9 +445,9 @@ export function ProductionReleaseTabs({
         pipeline.workflowFile,
         buildNumber,
         pipeline.branch,
-        pipeline.environment
+        pipeline.environment,
       );
-      
+
       const deployment: Deployment = {
         id: Date.now().toString(),
         projectId: project.id,
@@ -354,30 +458,32 @@ export function ProductionReleaseTabs({
         environment: pipeline.environment,
         batchId,
         productionReleaseId: releaseId,
-        status: 'pending',
+        status: "pending",
         workflowRunId: workflowRunId || undefined,
         startedAt: Date.now(),
       };
 
       saveDeployment(deployment);
       loadDeployments();
-      
+
       setSuccess(`Deployment triggered successfully for ${pipeline.name}`);
-      setBuildNumbers(prev => ({ ...prev, [pipelineId]: '' }));
+      setBuildNumbers((prev) => ({ ...prev, [pipelineId]: "" }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to trigger deployment');
+      setError(
+        err instanceof Error ? err.message : "Failed to trigger deployment",
+      );
     } finally {
-      setLoadingPipelines(prev => ({ ...prev, [pipelineId]: false }));
+      setLoadingPipelines((prev) => ({ ...prev, [pipelineId]: false }));
     }
   };
 
   const handleConfirmDeployAll = async () => {
     if (selectedPipelines.length === 0 || !activeTab) return;
-    
+
     setIsDeploying(true);
     setDeployProgress({ current: 0, total: selectedPipelines.length });
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     const batchId = `batch-${Date.now()}`;
     let successCount = 0;
@@ -385,42 +491,49 @@ export function ProductionReleaseTabs({
 
     for (let i = 0; i < selectedPipelines.length; i++) {
       const pipelineId = selectedPipelines[i];
-      const pipeline = project.pipelines.find(p => p.id === pipelineId);
-      
+      const pipeline = project.pipelines.find((p) => p.id === pipelineId);
+
       if (!pipeline) {
         failCount++;
         continue;
       }
 
-      const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+      const repository = project.repositories.find(
+        (r) => r.id === pipeline.repositoryId,
+      );
       if (!repository) {
         failCount++;
         continue;
       }
 
-      const buildNumber = inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-      
+      const buildNumber =
+        inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
+
       // Only validate build_number if the workflow defines it as an input
       const allInputs = workflowInputs[pipelineId] || [];
-      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
-      
+      const buildNumberInput = allInputs.find(
+        (input) => input.name === "build_number",
+      );
+
       if (buildNumberInput && !buildNumber) {
         failCount++;
-        setError(prev => prev + `\nMissing build number for ${pipeline.name}`);
+        setError(
+          (prev) => prev + `\nMissing build number for ${pipeline.name}`,
+        );
         setDeployProgress({ current: i + 1, total: selectedPipelines.length });
         continue;
       }
 
       try {
         const workflowParams: Record<string, string> = {};
-        
+
         const allInputs = inputValues[pipeline.id] || {};
         for (const [key, value] of Object.entries(allInputs)) {
-          if (value !== undefined && value !== null && value !== '') {
+          if (value !== undefined && value !== null && value !== "") {
             workflowParams[key] = String(value);
           }
         }
-        
+
         if (!workflowParams.build_number && buildNumber) {
           workflowParams.build_number = buildNumber;
         }
@@ -430,11 +543,11 @@ export function ProductionReleaseTabs({
           repository.repo,
           pipeline.workflowFile,
           pipeline.branch,
-          workflowParams
+          workflowParams,
         );
 
         // Wait 3 seconds before finding the workflow run
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 3000));
 
         const workflowRunId = await findTriggeredWorkflowRun(
           repository.owner,
@@ -442,9 +555,9 @@ export function ProductionReleaseTabs({
           pipeline.workflowFile,
           buildNumber,
           pipeline.branch,
-          pipeline.environment
+          pipeline.environment,
         );
-        
+
         const deployment: Deployment = {
           id: `${Date.now()}-${i}`,
           projectId: project.id,
@@ -455,7 +568,7 @@ export function ProductionReleaseTabs({
           environment: pipeline.environment,
           batchId,
           productionReleaseId: activeTab,
-          status: 'pending',
+          status: "pending",
           workflowRunId: workflowRunId || undefined,
           startedAt: Date.now(),
         };
@@ -472,13 +585,15 @@ export function ProductionReleaseTabs({
 
     loadDeployments();
     setIsDeploying(false);
-    
+
     if (failCount === 0) {
-      setSuccess(`Successfully triggered ${successCount} deployment${successCount !== 1 ? 's' : ''}`);
+      setSuccess(
+        `Successfully triggered ${successCount} deployment${successCount !== 1 ? "s" : ""}`,
+      );
     } else {
       setError(`Completed with ${successCount} success, ${failCount} failed`);
     }
-    
+
     setTimeout(() => {
       setShowDeployAllDialog(false);
       setEditingSelection(false);
@@ -486,17 +601,21 @@ export function ProductionReleaseTabs({
   };
 
   const handleCreateNewRelease = () => {
-    const releaseNumber = useAutoNumber ? newReleaseNumber : newReleaseNumber.trim();
-    
+    const releaseNumber = useAutoNumber
+      ? newReleaseNumber
+      : newReleaseNumber.trim();
+
     if (!releaseNumber) {
-      alert('Please enter a release number');
+      alert("Please enter a release number");
       return;
     }
 
     // Check if release number already exists
-    const exists = releases.some(r => r.releaseNumber === releaseNumber);
+    const exists = releases.some((r) => r.releaseNumber === releaseNumber);
     if (exists) {
-      alert('A release with this number already exists. Please use a different number.');
+      alert(
+        "A release with this number already exists. Please use a different number.",
+      );
       return;
     }
 
@@ -509,14 +628,14 @@ export function ProductionReleaseTabs({
   const handleDeleteRelease = () => {
     if (releaseToDelete) {
       deleteProductionRelease(releaseToDelete);
-      const updatedReleases = releases.filter(r => r.id !== releaseToDelete);
+      const updatedReleases = releases.filter((r) => r.id !== releaseToDelete);
       setReleases(updatedReleases);
-      
+
       // If we deleted the active tab, switch to another one
       if (activeTab === releaseToDelete && updatedReleases.length > 0) {
         setActiveTab(updatedReleases[0].id);
       }
-      
+
       setShowDeleteDialog(false);
       setReleaseToDelete(null);
     }
@@ -527,43 +646,78 @@ export function ProductionReleaseTabs({
     setShowDeleteDialog(true);
   };
 
-  const getStatusIcon = (status: ProductionRelease['status']) => {
+  const getStatusIcon = (status: ProductionRelease["status"]) => {
     switch (status) {
-      case 'completed':
-        return <CheckCircle2 className="w-3 h-3" style={{ color: '#10b981' }} />;
-      case 'in_progress':
-        return <Loader2 className="w-3 h-3 animate-spin" style={{ color: '#2563eb' }} />;
-      case 'cancelled':
-        return <XCircle className="w-3 h-3" style={{ color: '#ef4444' }} />;
+      case "completed":
+        return (
+          <CheckCircle2 className="w-3 h-3" style={{ color: "#10b981" }} />
+        );
+      case "in_progress":
+        return (
+          <Loader2
+            className="w-3 h-3 animate-spin"
+            style={{ color: "#2563eb" }}
+          />
+        );
+      case "cancelled":
+        return <XCircle className="w-3 h-3" style={{ color: "#ef4444" }} />;
       default:
-        return <Circle className="w-3 h-3" style={{ color: '#9ca3af' }} />;
+        return <Circle className="w-3 h-3" style={{ color: "#9ca3af" }} />;
     }
   };
 
-  const getStatusBadge = (status: ProductionRelease['status']) => {
+  const getStatusBadge = (status: ProductionRelease["status"]) => {
     const styles = {
-      completed: { background: '#d1fae5', color: '#065f46', border: '1px solid #10b981' },
-      in_progress: { background: '#dbeafe', color: '#1e40af', border: '1px solid #2563eb' },
-      cancelled: { background: '#fee2e2', color: '#991b1b', border: '1px solid #ef4444' },
-      draft: { background: '#f3f4f6', color: '#374151', border: '1px solid #9ca3af' },
+      completed: {
+        background: "#d1fae5",
+        color: "#065f46",
+        border: "1px solid #10b981",
+      },
+      in_progress: {
+        background: "#dbeafe",
+        color: "#1e40af",
+        border: "1px solid #2563eb",
+      },
+      cancelled: {
+        background: "#fee2e2",
+        color: "#991b1b",
+        border: "1px solid #ef4444",
+      },
+      draft: {
+        background: "#f3f4f6",
+        color: "#374151",
+        border: "1px solid #9ca3af",
+      },
     };
 
     return (
       <Badge variant="outline" style={styles[status]} className="text-xs">
-        {status.replace('_', ' ')}
+        {status.replace("_", " ")}
       </Badge>
     );
   };
 
   // Build history functions
   const loadLatestBuilds = async () => {
-    const buildsData: { [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] } } = {};
-    
+    const buildsData: {
+      [pipelineId: string]: BuildInfo & { history?: BuildHistoryItem[] };
+    } = {};
+
     for (const pipeline of project.pipelines) {
-      const repository = project.repositories.find(r => r.id === pipeline.repositoryId);
+      const repository = project.repositories.find(
+        (r) => r.id === pipeline.repositoryId,
+      );
       if (!repository) continue;
 
-      buildsData[pipeline.id] = { commit: null, buildNumber: null, status: null, conclusion: null, url: null, createdAt: null, loading: true };
+      buildsData[pipeline.id] = {
+        commit: null,
+        buildNumber: null,
+        status: null,
+        conclusion: null,
+        url: null,
+        createdAt: null,
+        loading: true,
+      };
 
       try {
         const builds = await getLatestBuildsForBranch(
@@ -571,21 +725,21 @@ export function ProductionReleaseTabs({
           repository.repo,
           pipeline.workflowFile,
           pipeline.branch,
-          5
+          5,
         );
 
         if (builds.length > 0) {
           const latestBuild = builds[0];
-          
+
           // Create history array with all builds
           const history: BuildHistoryItem[] = builds
-            .filter(build => build.commit)
-            .map(build => ({
-              buildNumber: build.buildNumber || 'N/A',
+            .filter((build) => build.commit)
+            .map((build) => ({
+              buildNumber: build.buildNumber || "N/A",
               commit: build.commit!,
-              status: build.status || 'unknown',
+              status: build.status || "unknown",
               conclusion: build.conclusion || null,
-              url: build.url || '',
+              url: build.url || "",
               createdAt: build.createdAt || new Date().toISOString(),
             }));
 
@@ -600,11 +754,27 @@ export function ProductionReleaseTabs({
             history,
           };
         } else {
-          buildsData[pipeline.id] = { commit: null, buildNumber: null, status: null, conclusion: null, url: null, createdAt: null, loading: false };
+          buildsData[pipeline.id] = {
+            commit: null,
+            buildNumber: null,
+            status: null,
+            conclusion: null,
+            url: null,
+            createdAt: null,
+            loading: false,
+          };
         }
       } catch (err) {
         console.error(`Failed to load builds for ${pipeline.name}:`, err);
-        buildsData[pipeline.id] = { commit: null, buildNumber: null, status: null, conclusion: null, url: null, createdAt: null, loading: false };
+        buildsData[pipeline.id] = {
+          commit: null,
+          buildNumber: null,
+          status: null,
+          conclusion: null,
+          url: null,
+          createdAt: null,
+          loading: false,
+        };
       }
     }
 
@@ -612,33 +782,40 @@ export function ProductionReleaseTabs({
   };
 
   const handleUseBuild = (pipelineId: string, buildNumber: string) => {
-    setInputValues(prev => ({
+    setInputValues((prev) => ({
       ...prev,
       [pipelineId]: {
         ...prev[pipelineId],
         build_number: buildNumber,
       },
     }));
-    setBuildNumbers(prev => ({ ...prev, [pipelineId]: buildNumber }));
+    setBuildNumbers((prev) => ({ ...prev, [pipelineId]: buildNumber }));
   };
 
   const handleOpenPrepareInputsDialog = () => {
-    const currentRelease = releases.find(r => r.id === activeTab);
-    
+    const currentRelease = releases.find((r) => r.id === activeTab);
+
     // Initialize with smart defaults: prepared > current > favorite > empty
     const initialInputs: { [pipelineId: string]: Record<string, any> } = {};
-    
-    project.pipelines.forEach(pipeline => {
+
+    project.pipelines.forEach((pipeline) => {
       const inputs: Record<string, any> = {};
       const pipelineInputs = workflowInputs[pipeline.id] || [];
-      
-      pipelineInputs.forEach(input => {
+
+      pipelineInputs.forEach((input) => {
         // Priority 1: Already prepared value
-        if (currentRelease?.preparedInputs?.[pipeline.id]?.[input.name] !== undefined) {
-          inputs[input.name] = currentRelease.preparedInputs[pipeline.id][input.name];
+        if (
+          currentRelease?.preparedInputs?.[pipeline.id]?.[input.name] !==
+          undefined
+        ) {
+          inputs[input.name] =
+            currentRelease.preparedInputs[pipeline.id][input.name];
         }
         // Priority 2: Current input value (if user already entered something)
-        else if (inputValues[pipeline.id]?.[input.name] !== undefined && inputValues[pipeline.id][input.name] !== '') {
+        else if (
+          inputValues[pipeline.id]?.[input.name] !== undefined &&
+          inputValues[pipeline.id][input.name] !== ""
+        ) {
           inputs[input.name] = inputValues[pipeline.id][input.name];
         }
         // Priority 3: Favorite/default value
@@ -647,19 +824,19 @@ export function ProductionReleaseTabs({
         }
         // Priority 4: Empty (will use placeholder or default from workflow)
         else {
-          inputs[input.name] = input.type === 'boolean' ? false : '';
+          inputs[input.name] = input.type === "boolean" ? false : "";
         }
       });
-      
+
       initialInputs[pipeline.id] = inputs;
     });
-    
+
     setPreparedInputs(initialInputs);
     setShowPrepareInputsDialog(true);
   };
 
   const handleSavePreparedInputs = () => {
-    const currentRelease = releases.find(r => r.id === activeTab);
+    const currentRelease = releases.find((r) => r.id === activeTab);
     if (!currentRelease) return;
 
     // Update the release with prepared inputs
@@ -671,29 +848,29 @@ export function ProductionReleaseTabs({
     // Save to storage
     saveProductionRelease(updatedRelease);
     loadReleases();
-    
+
     // Also update current input values
     const updatedInputValues = { ...inputValues };
     const updatedBuildNumbers = { ...buildNumbers };
-    
+
     Object.entries(preparedInputs).forEach(([pipelineId, inputs]) => {
       updatedInputValues[pipelineId] = {
         ...updatedInputValues[pipelineId],
         ...inputs,
       };
-      
+
       // Update build numbers state if present
       if (inputs.build_number) {
         updatedBuildNumbers[pipelineId] = inputs.build_number;
       }
     });
-    
+
     setInputValues(updatedInputValues);
     setBuildNumbers(updatedBuildNumbers);
-    
+
     setShowPrepareInputsDialog(false);
-    setSuccess('Workflow inputs prepared and saved successfully!');
-    setTimeout(() => setSuccess(''), 3000);
+    setSuccess("Workflow inputs prepared and saved successfully!");
+    setTimeout(() => setSuccess(""), 3000);
   };
 
   const formatRelativeDate = (dateString: string) => {
@@ -710,54 +887,88 @@ export function ProductionReleaseTabs({
     return date.toLocaleDateString();
   };
 
-  const getQAStatusIcon = (status: string | null, conclusion: string | null) => {
-    if (status === 'completed') {
-      if (conclusion === 'success') {
-        return <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />;
-      } else if (conclusion === 'failure') {
-        return <XCircle className="w-4 h-4" style={{ color: '#ef4444' }} />;
+  const getQAStatusIcon = (
+    status: string | null,
+    conclusion: string | null,
+  ) => {
+    if (status === "completed") {
+      if (conclusion === "success") {
+        return (
+          <CheckCircle2 className="w-4 h-4" style={{ color: "#10b981" }} />
+        );
+      } else if (conclusion === "failure") {
+        return <XCircle className="w-4 h-4" style={{ color: "#ef4444" }} />;
       }
-    } else if (status === 'in_progress' || status === 'queued') {
-      return <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#2563eb' }} />;
+    } else if (status === "in_progress" || status === "queued") {
+      return (
+        <Loader2
+          className="w-4 h-4 animate-spin"
+          style={{ color: "#2563eb" }}
+        />
+      );
     }
-    return <Circle className="w-4 h-4" style={{ color: '#9ca3af' }} />;
+    return <Circle className="w-4 h-4" style={{ color: "#9ca3af" }} />;
   };
 
   // If no releases exist, show a prompt to create the first one
   if (releases.length === 0) {
     return (
       <>
-        <div className="border-2 border-dashed rounded-lg p-12 text-center" style={{ borderColor: '#475569', background: 'rgba(51, 65, 85, 0.2)' }}>
-          <div className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)' }}>
+        <div
+          className="border-2 border-dashed rounded-lg p-12 text-center"
+          style={{
+            borderColor: "#475569",
+            background: "rgba(51, 65, 85, 0.2)",
+          }}
+        >
+          <div
+            className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4"
+            style={{
+              background: "linear-gradient(135deg, #7c3aed 0%, #ec4899 100%)",
+            }}
+          >
             <Plus className="w-8 h-8 text-white" />
           </div>
-          <h3 className="text-xl mb-2" style={{ color: '#e9d5ff' }}>
+          <h3 className="text-xl mb-2" style={{ color: "#e9d5ff" }}>
             No Production Releases Yet
           </h3>
-          <p className="mb-6" style={{ color: '#cbd5e1' }}>
-            Create your first production release to start managing your deployment process
+          <p className="mb-6" style={{ color: "#cbd5e1" }}>
+            Create your first production release to start managing your
+            deployment process
           </p>
           <Button
             onClick={() => setShowNewReleaseDialog(true)}
             className="text-white"
-            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
+            style={{
+              background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+              boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+            }}
           >
             <Plus className="w-4 h-4 mr-2" />
             Create First Release
           </Button>
         </div>
 
-        <Dialog open={showNewReleaseDialog} onOpenChange={setShowNewReleaseDialog}>
-          <DialogContent className="sm:max-w-[500px]" style={{ background: '#1e293b', borderColor: '#475569' }}>
+        <Dialog
+          open={showNewReleaseDialog}
+          onOpenChange={setShowNewReleaseDialog}
+        >
+          <DialogContent
+            className="sm:max-w-[500px]"
+            style={{ background: "#1e293b", borderColor: "#475569" }}
+          >
             <DialogHeader>
-              <DialogTitle style={{ color: '#e9d5ff' }}>Create New Production Release</DialogTitle>
-              <DialogDescription style={{ color: '#cbd5e1' }}>
-                Start a new production release process with a global release number.
+              <DialogTitle style={{ color: "#e9d5ff" }}>
+                Create New Production Release
+              </DialogTitle>
+              <DialogDescription style={{ color: "#cbd5e1" }}>
+                Start a new production release process with a global release
+                number.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="release-number" style={{ color: '#e9d5ff' }}>
+                <Label htmlFor="release-number" style={{ color: "#e9d5ff" }}>
                   Release Number
                 </Label>
                 <Input
@@ -769,7 +980,7 @@ export function ProductionReleaseTabs({
                   }}
                   placeholder="e.g., 2025.10.1"
                   className="bg-slate-700 border-slate-600"
-                  style={{ color: '#e9d5ff' }}
+                  style={{ color: "#e9d5ff" }}
                 />
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -785,26 +996,40 @@ export function ProductionReleaseTabs({
                   <label
                     htmlFor="auto-number"
                     className="text-sm cursor-pointer"
-                    style={{ color: '#cbd5e1' }}
+                    style={{ color: "#cbd5e1" }}
                   >
                     Use auto-generated number (YYYY.MM.sequence)
                   </label>
                 </div>
               </div>
-              <div className="rounded-lg p-3" style={{ background: 'rgba(147, 197, 253, 0.1)', border: '1px solid #3b82f6' }}>
-                <p className="text-sm" style={{ color: '#93c5fd' }}>
-                  <strong>Tip:</strong> Release numbers follow the format YYYY.MM.X where X is an auto-incremented number for each release in the month.
+              <div
+                className="rounded-lg p-3"
+                style={{
+                  background: "rgba(147, 197, 253, 0.1)",
+                  border: "1px solid #3b82f6",
+                }}
+              >
+                <p className="text-sm" style={{ color: "#93c5fd" }}>
+                  <strong>Tip:</strong> Release numbers follow the format
+                  YYYY.MM.X where X is an auto-incremented number for each
+                  release in the month.
                 </p>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowNewReleaseDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowNewReleaseDialog(false)}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateNewRelease}
                 className="text-white"
-                style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                }}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Release
@@ -840,7 +1065,7 @@ export function ProductionReleaseTabs({
                       confirmDeleteRelease(release.id);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (e.key === "Enter" || e.key === " ") {
                         e.stopPropagation();
                         e.preventDefault();
                         confirmDeleteRelease(release.id);
@@ -860,7 +1085,10 @@ export function ProductionReleaseTabs({
             onClick={() => setShowNewReleaseDialog(true)}
             size="sm"
             className="text-white"
-            style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
+            style={{
+              background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+              boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+            }}
           >
             <Plus className="w-4 h-4 mr-2" />
             New Release
@@ -871,15 +1099,15 @@ export function ProductionReleaseTabs({
           <TabsContent key={release.id} value={release.id} className="mt-0">
             <div className="mb-4 flex items-center gap-2 justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg" style={{ color: '#e9d5ff' }}>
+                <h3 className="text-lg" style={{ color: "#e9d5ff" }}>
                   Release {release.releaseNumber}
                 </h3>
                 {getStatusBadge(release.status)}
-                <span className="text-sm" style={{ color: '#94a3b8' }}>
+                <span className="text-sm" style={{ color: "#94a3b8" }}>
                   • Created {new Date(release.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              
+
               {/* Generate Report Button - Only show when release is completed */}
               {release.buildVersionsUpdated && (
                 <Button
@@ -887,14 +1115,14 @@ export function ProductionReleaseTabs({
                   size="sm"
                   variant="outline"
                   className="gap-2"
-                  style={{ borderColor: '#a78bfa', color: '#a78bfa' }}
+                  style={{ borderColor: "#a78bfa", color: "#a78bfa" }}
                 >
                   <FileText className="w-4 h-4" />
                   Generate Report
                 </Button>
               )}
             </div>
-            
+
             <div className="space-y-4">
               {/* 1. Production Release Process */}
               <ProductionReleaseProcess
@@ -908,26 +1136,57 @@ export function ProductionReleaseTabs({
 
               {/* 2. Deploy Section */}
               <Collapsible open={deployOpen} onOpenChange={setDeployOpen}>
-                <Card id="deploy-section" className="border-[#e5e7eb]" style={{ background: 'linear-gradient(to right, #ffffff, #faf5ff)' }}>
+                <Card
+                  id="deploy-section"
+                  className="border-[#e5e7eb]"
+                  style={{
+                    background: "linear-gradient(to right, #ffffff, #faf5ff)",
+                  }}
+                >
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
                       <CollapsibleTrigger asChild>
-                        <Button variant="ghost" className="p-0 h-auto hover:bg-transparent flex-1 text-left">
+                        <Button
+                          variant="ghost"
+                          className="p-0 h-auto hover:bg-transparent flex-1 text-left"
+                        >
                           <div className="flex items-start justify-between w-full">
                             <div className="text-left">
                               <div className="flex items-center gap-2">
-                                <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
-                                <CardTitle style={{ color: '#6b21a8' }}>Deploy</CardTitle>
-                                {deployOpen ? <ChevronUp className="w-4 h-4" style={{ color: '#7c3aed' }} /> : <ChevronDown className="w-4 h-4" style={{ color: '#7c3aed' }} />}
-                              </div>
-                              <CardDescription style={{ color: '#6b7280' }}>
-                                Trigger a new deployment for this release
-                                {release.preparedInputs && Object.keys(release.preparedInputs).length > 0 && (
-                                  <span className="ml-2 inline-flex items-center gap-1 text-green-600">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    {Object.keys(release.preparedInputs).length}/{project.pipelines.length} pipelines configured
-                                  </span>
+                                <Rocket
+                                  className="w-5 h-5"
+                                  style={{ color: "#7c3aed" }}
+                                />
+                                <CardTitle style={{ color: "#6b21a8" }}>
+                                  Deploy
+                                </CardTitle>
+                                {deployOpen ? (
+                                  <ChevronUp
+                                    className="w-4 h-4"
+                                    style={{ color: "#7c3aed" }}
+                                  />
+                                ) : (
+                                  <ChevronDown
+                                    className="w-4 h-4"
+                                    style={{ color: "#7c3aed" }}
+                                  />
                                 )}
+                              </div>
+                              <CardDescription style={{ color: "#6b7280" }}>
+                                Trigger a new deployment for this release
+                                {release.preparedInputs &&
+                                  Object.keys(release.preparedInputs).length >
+                                    0 && (
+                                    <span className="ml-2 inline-flex items-center gap-1 text-green-600">
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      {
+                                        Object.keys(release.preparedInputs)
+                                          .length
+                                      }
+                                      /{project.pipelines.length} pipelines
+                                      configured
+                                    </span>
+                                  )}
                               </CardDescription>
                             </div>
                           </div>
@@ -938,231 +1197,409 @@ export function ProductionReleaseTabs({
                         variant="outline"
                         onClick={handleOpenPrepareInputsDialog}
                         className="flex-shrink-0"
-                        style={{ borderColor: '#c084fc', color: '#7c3aed' }}
+                        style={{ borderColor: "#c084fc", color: "#7c3aed" }}
                       >
                         <Star className="w-4 h-4 mr-2" />
-                        {release.preparedInputs && Object.keys(release.preparedInputs).length > 0 
-                          ? 'Update Inputs' 
-                          : 'Prepare Inputs'}
+                        {release.preparedInputs &&
+                        Object.keys(release.preparedInputs).length > 0
+                          ? "Update Inputs"
+                          : "Prepare Inputs"}
                       </Button>
                     </div>
                   </CardHeader>
                   <CollapsibleContent>
                     <CardContent className="space-y-4">
                       {/* Prepared Inputs Info */}
-                      {release.preparedInputs && Object.keys(release.preparedInputs).length > 0 && (
-                        <Alert className="border-2" style={{ background: '#f0fdf4', borderColor: '#86efac' }}>
-                          <CheckCircle2 className="h-4 w-4" style={{ color: '#16a34a' }} />
-                          <AlertDescription style={{ color: '#166534' }}>
-                            <strong>Inputs Ready:</strong> {Object.keys(release.preparedInputs).length} pipeline{Object.keys(release.preparedInputs).length > 1 ? 's have' : ' has'} pre-configured inputs. 
-                            You can modify them below before deploying.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      
+                      {release.preparedInputs &&
+                        Object.keys(release.preparedInputs).length > 0 && (
+                          <Alert
+                            className="border-2"
+                            style={{
+                              background: "#f0fdf4",
+                              borderColor: "#86efac",
+                            }}
+                          >
+                            <CheckCircle2
+                              className="h-4 w-4"
+                              style={{ color: "#16a34a" }}
+                            />
+                            <AlertDescription style={{ color: "#166534" }}>
+                              <strong>Inputs Ready:</strong>{" "}
+                              {Object.keys(release.preparedInputs).length}{" "}
+                              pipeline
+                              {Object.keys(release.preparedInputs).length > 1
+                                ? "s have"
+                                : " has"}{" "}
+                              pre-configured inputs. You can modify them below
+                              before deploying.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
                       {/* Pipeline Rows */}
-                      {project.pipelines.map(pipeline => {
-                        const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
+                      {project.pipelines.map((pipeline) => {
+                        const repo = project.repositories.find(
+                          (r) => r.id === pipeline.repositoryId,
+                        );
                         const allInputs = workflowInputs[pipeline.id] || [];
-                        
+
                         return (
-                          <div 
-                            key={pipeline.id} 
+                          <div
+                            key={pipeline.id}
                             className="p-2.5 rounded-lg border-2 space-y-2"
-                            style={{ background: 'linear-gradient(to right, #fefcff, #faf5ff)', borderColor: '#c4b5fd' }}
+                            style={{
+                              background:
+                                "linear-gradient(to right, #fefcff, #faf5ff)",
+                              borderColor: "#c4b5fd",
+                            }}
                           >
                             {/* Pipeline Header */}
                             <div className="flex items-center justify-between">
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(to bottom, #7c3aed, #a78bfa)' }}></div>
-                                  <div className="text-base font-semibold" style={{ color: '#6b21a8' }}>
+                                  <div
+                                    className="w-1 h-5 rounded-full"
+                                    style={{
+                                      background:
+                                        "linear-gradient(to bottom, #7c3aed, #a78bfa)",
+                                    }}
+                                  ></div>
+                                  <div
+                                    className="text-base font-semibold"
+                                    style={{ color: "#6b21a8" }}
+                                  >
                                     {pipeline.name}
                                   </div>
-                                  {release.preparedInputs?.[pipeline.id] && Object.keys(release.preparedInputs[pipeline.id]).length > 0 && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className="text-xs px-1.5 py-0" 
-                                      style={{ background: '#dcfce7', color: '#16a34a', borderColor: '#86efac' }}
-                                      title={`${Object.keys(release.preparedInputs[pipeline.id]).length} input(s) pre-configured`}
-                                    >
-                                      <Star className="w-3 h-3 mr-0.5" fill="#16a34a" />
-                                      {Object.keys(release.preparedInputs[pipeline.id]).length}
-                                    </Badge>
-                                  )}
+                                  {release.preparedInputs?.[pipeline.id] &&
+                                    Object.keys(
+                                      release.preparedInputs[pipeline.id],
+                                    ).length > 0 && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs px-1.5 py-0"
+                                        style={{
+                                          background: "#dcfce7",
+                                          color: "#16a34a",
+                                          borderColor: "#86efac",
+                                        }}
+                                        title={`${Object.keys(release.preparedInputs[pipeline.id]).length} input(s) pre-configured`}
+                                      >
+                                        <Star
+                                          className="w-3 h-3 mr-0.5"
+                                          fill="#16a34a"
+                                        />
+                                        {
+                                          Object.keys(
+                                            release.preparedInputs[pipeline.id],
+                                          ).length
+                                        }
+                                      </Badge>
+                                    )}
                                 </div>
                                 {repo && (
-                                  <div className="flex items-center gap-3 text-xs" style={{ color: '#6b7280' }}>
+                                  <div
+                                    className="flex items-center gap-3 text-xs"
+                                    style={{ color: "#6b7280" }}
+                                  >
                                     <div className="flex items-center gap-1">
-                                      <FolderGit2 className="w-3 h-3" style={{ color: '#8b5cf6' }} />
-                                      <span>{repo.owner}/{repo.repo}</span>
+                                      <FolderGit2
+                                        className="w-3 h-3"
+                                        style={{ color: "#8b5cf6" }}
+                                      />
+                                      <span>
+                                        {repo.owner}/{repo.repo}
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                      <GitBranch className="w-3 h-3" style={{ color: '#8b5cf6' }} />
+                                      <GitBranch
+                                        className="w-3 h-3"
+                                        style={{ color: "#8b5cf6" }}
+                                      />
                                       <span>{pipeline.branch}</span>
                                     </div>
                                   </div>
                                 )}
                               </div>
-                              
+
                               {/* Latest Build Badge */}
                               <div className="flex flex-col items-end gap-1">
                                 {latestBuilds[pipeline.id]?.loading ? (
-                                  <div className="flex items-center gap-1 text-xs" style={{ color: '#9ca3af' }}>
+                                  <div
+                                    className="flex items-center gap-1 text-xs"
+                                    style={{ color: "#9ca3af" }}
+                                  >
                                     <RefreshCw className="w-3 h-3 animate-spin" />
                                     <span>Loading builds...</span>
                                   </div>
                                 ) : latestBuilds[pipeline.id]?.buildNumber ? (
                                   <>
-                                    <div 
-                                      className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all" 
-                                      style={{ color: '#7c3aed' }}
-                                      onClick={() => handleUseBuild(pipeline.id, latestBuilds[pipeline.id]?.buildNumber || '')}
+                                    <div
+                                      className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all"
+                                      style={{ color: "#7c3aed" }}
+                                      onClick={() =>
+                                        handleUseBuild(
+                                          pipeline.id,
+                                          latestBuilds[pipeline.id]
+                                            ?.buildNumber || "",
+                                        )
+                                      }
                                       title={`Click to use latest build from ${pipeline.branch}`}
                                     >
                                       <GitBranch className="w-3 h-3" />
                                       <span>{pipeline.branch}:</span>
-                                      <code 
-                                        className="px-1.5 py-0.5 rounded font-semibold" 
-                                        style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
+                                      <code
+                                        className="px-1.5 py-0.5 rounded font-semibold"
+                                        style={{
+                                          background:
+                                            "linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)",
+                                          color: "#6b21a8",
+                                        }}
                                       >
                                         {latestBuilds[pipeline.id]?.buildNumber}
                                       </code>
                                     </div>
-                                    {latestBuilds[pipeline.id]?.history && latestBuilds[pipeline.id]?.history!.length > 1 && (
-                                      <button
-                                        type="button"
-                                        className="text-xs hover:underline transition-all flex items-center gap-1"
-                                        style={{ color: '#9ca3af' }}
-                                        onClick={() => setShowBuildHistory(prev => ({
-                                          ...prev,
-                                          [pipeline.id]: !prev[pipeline.id]
-                                        }))}
-                                      >
-                                        {showBuildHistory[pipeline.id] ? (
-                                          <>
-                                            <ChevronUp className="w-3 h-3" />
-                                            <span>Hide</span>
-                                          </>
-                                        ) : (
-                                          <>
-                                            <ChevronDown className="w-3 h-3" />
-                                            <span>Show {latestBuilds[pipeline.id]?.history!.length - 1} more</span>
-                                          </>
-                                        )}
-                                      </button>
-                                    )}
+                                    {latestBuilds[pipeline.id]?.history &&
+                                      latestBuilds[pipeline.id]?.history!
+                                        .length > 1 && (
+                                        <button
+                                          type="button"
+                                          className="text-xs hover:underline transition-all flex items-center gap-1"
+                                          style={{ color: "#9ca3af" }}
+                                          onClick={() =>
+                                            setShowBuildHistory((prev) => ({
+                                              ...prev,
+                                              [pipeline.id]: !prev[pipeline.id],
+                                            }))
+                                          }
+                                        >
+                                          {showBuildHistory[pipeline.id] ? (
+                                            <>
+                                              <ChevronUp className="w-3 h-3" />
+                                              <span>Hide</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ChevronDown className="w-3 h-3" />
+                                              <span>
+                                                Show{" "}
+                                                {latestBuilds[pipeline.id]
+                                                  ?.history!.length - 1}{" "}
+                                                more
+                                              </span>
+                                            </>
+                                          )}
+                                        </button>
+                                      )}
                                   </>
                                 ) : null}
                               </div>
                             </div>
 
                             {/* Last 5 Builds Dropdown */}
-                            {showBuildHistory[pipeline.id] && latestBuilds[pipeline.id]?.history && latestBuilds[pipeline.id]?.history!.length > 1 && (
-                              <div className="mt-2 p-2 rounded-md border space-y-1.5" style={{ background: '#fafaf9', borderColor: '#e9d5ff' }}>
-                                <div className="text-xs font-semibold mb-1.5" style={{ color: '#6b21a8' }}>
-                                  Last {latestBuilds[pipeline.id]?.history!.length} builds from {pipeline.branch}
-                                </div>
-                                {latestBuilds[pipeline.id]?.history!.slice(0, 5).map((build, index) => {
-                                  const statusColor = build.conclusion === 'success' ? '#10b981' : 
-                                                     build.conclusion === 'failure' ? '#ef4444' : 
-                                                     build.status === 'in_progress' ? '#2563eb' : '#6b7280';
-                                  const statusIcon = build.conclusion === 'success' ? CheckCircle2 : 
-                                                    build.conclusion === 'failure' ? XCircle : 
-                                                    build.status === 'in_progress' ? RefreshCw : Clock;
-                                  const StatusIcon = statusIcon;
-                                  
-                                  return (
-                                    <div 
-                                      key={index}
-                                      className="flex items-center justify-between p-2 rounded border cursor-pointer hover:border-purple-300 transition-all group"
-                                      style={{ background: '#ffffff', borderColor: index === 0 ? '#c4b5fd' : '#e9d5ff' }}
-                                      onClick={() => {
-                                        handleUseBuild(pipeline.id, build.buildNumber);
-                                        setShowBuildHistory(prev => ({ ...prev, [pipeline.id]: false }));
-                                      }}
-                                      title={`Click to use this build`}
-                                    >
-                                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <StatusIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: statusColor }} />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <code 
-                                              className="px-1.5 py-0.5 rounded text-xs font-semibold" 
-                                              style={{ 
-                                                background: index === 0 ? 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)' : '#f3f4f6', 
-                                                color: index === 0 ? '#6b21a8' : '#4b5563' 
-                                              }}
-                                            >
-                                              {build.buildNumber}
-                                            </code>
-                                            {index === 0 && (
-                                              <Badge 
-                                                variant="outline" 
-                                                className="text-xs px-1.5 py-0" 
-                                                style={{ background: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' }}
-                                              >
-                                                Latest
-                                              </Badge>
-                                            )}
+                            {showBuildHistory[pipeline.id] &&
+                              latestBuilds[pipeline.id]?.history &&
+                              latestBuilds[pipeline.id]?.history!.length >
+                                1 && (
+                                <div
+                                  className="mt-2 p-2 rounded-md border space-y-1.5"
+                                  style={{
+                                    background: "#fafaf9",
+                                    borderColor: "#e9d5ff",
+                                  }}
+                                >
+                                  <div
+                                    className="text-xs font-semibold mb-1.5"
+                                    style={{ color: "#6b21a8" }}
+                                  >
+                                    Last{" "}
+                                    {latestBuilds[pipeline.id]?.history!.length}{" "}
+                                    builds from {pipeline.branch}
+                                  </div>
+                                  {latestBuilds[pipeline.id]
+                                    ?.history!.slice(0, 5)
+                                    .map((build, index) => {
+                                      const statusColor =
+                                        build.conclusion === "success"
+                                          ? "#10b981"
+                                          : build.conclusion === "failure"
+                                            ? "#ef4444"
+                                            : build.status === "in_progress"
+                                              ? "#2563eb"
+                                              : "#6b7280";
+                                      const statusIcon =
+                                        build.conclusion === "success"
+                                          ? CheckCircle2
+                                          : build.conclusion === "failure"
+                                            ? XCircle
+                                            : build.status === "in_progress"
+                                              ? RefreshCw
+                                              : Clock;
+                                      const StatusIcon = statusIcon;
+
+                                      return (
+                                        <div
+                                          key={index}
+                                          className="flex items-center justify-between p-2 rounded border cursor-pointer hover:border-purple-300 transition-all group"
+                                          style={{
+                                            background: "#ffffff",
+                                            borderColor:
+                                              index === 0
+                                                ? "#c4b5fd"
+                                                : "#e9d5ff",
+                                          }}
+                                          onClick={() => {
+                                            handleUseBuild(
+                                              pipeline.id,
+                                              build.buildNumber,
+                                            );
+                                            setShowBuildHistory((prev) => ({
+                                              ...prev,
+                                              [pipeline.id]: false,
+                                            }));
+                                          }}
+                                          title={`Click to use this build`}
+                                        >
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            <StatusIcon
+                                              className="w-3.5 h-3.5 flex-shrink-0"
+                                              style={{ color: statusColor }}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <code
+                                                  className="px-1.5 py-0.5 rounded text-xs font-semibold"
+                                                  style={{
+                                                    background:
+                                                      index === 0
+                                                        ? "linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)"
+                                                        : "#f3f4f6",
+                                                    color:
+                                                      index === 0
+                                                        ? "#6b21a8"
+                                                        : "#4b5563",
+                                                  }}
+                                                >
+                                                  {build.buildNumber}
+                                                </code>
+                                                {index === 0 && (
+                                                  <Badge
+                                                    variant="outline"
+                                                    className="text-xs px-1.5 py-0"
+                                                    style={{
+                                                      background: "#dbeafe",
+                                                      color: "#1e40af",
+                                                      borderColor: "#60a5fa",
+                                                    }}
+                                                  >
+                                                    Latest
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              {build.commit && (
+                                                <p
+                                                  className="text-xs mt-0.5 truncate"
+                                                  style={{ color: "#6b7280" }}
+                                                >
+                                                  {build.commit.sha} •{" "}
+                                                  {build.commit.message}
+                                                </p>
+                                              )}
+                                              {build.createdAt && (
+                                                <p
+                                                  className="text-xs mt-0.5"
+                                                  style={{ color: "#9ca3af" }}
+                                                >
+                                                  {new Date(
+                                                    build.createdAt,
+                                                  ).toLocaleString()}
+                                                </p>
+                                              )}
+                                            </div>
                                           </div>
-                                          {build.commit && (
-                                            <p className="text-xs mt-0.5 truncate" style={{ color: '#6b7280' }}>
-                                              {build.commit.sha} • {build.commit.message}
-                                            </p>
-                                          )}
-                                          {build.createdAt && (
-                                            <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
-                                              {new Date(build.createdAt).toLocaleString()}
-                                            </p>
+                                          {build.url && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                window.open(
+                                                  build.url,
+                                                  "_blank",
+                                                );
+                                              }}
+                                              title="View on GitHub"
+                                            >
+                                              <ExternalLink
+                                                className="w-3 h-3"
+                                                style={{ color: "#7c3aed" }}
+                                              />
+                                            </Button>
                                           )}
                                         </div>
-                                      </div>
-                                      {build.url && (
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.open(build.url, '_blank');
-                                          }}
-                                          title="View on GitHub"
-                                        >
-                                          <ExternalLink className="w-3 h-3" style={{ color: '#7c3aed' }} />
-                                        </Button>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                      );
+                                    })}
+                                </div>
+                              )}
 
                             {/* Workflow Inputs */}
                             {allInputs.length > 0 && (
                               <div className="space-y-1.5">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                                  {allInputs.map(input => {
-                                    const value = input.name === 'build_number' 
-                                      ? (inputValues[pipeline.id]?.[input.name] || buildNumbers[pipeline.id] || '')
-                                      : (inputValues[pipeline.id]?.[input.name] || '');
-                                    
+                                  {allInputs.map((input) => {
+                                    const value =
+                                      input.name === "build_number"
+                                        ? inputValues[pipeline.id]?.[
+                                            input.name
+                                          ] ||
+                                          buildNumbers[pipeline.id] ||
+                                          ""
+                                        : inputValues[pipeline.id]?.[
+                                            input.name
+                                          ] || "";
+
                                     return (
-                                      <div key={input.name} className="space-y-0.5">
-                                        <Label htmlFor={`input-${release.id}-${pipeline.id}-${input.name}`} className="text-xs font-medium flex items-center gap-1" style={{ color: '#6b21a8' }}>
-                                          {input.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                          {input.required && <span style={{ color: '#ec4899' }}> *</span>}
-                                          {release.preparedInputs?.[pipeline.id]?.[input.name] !== undefined && (
-                                            <Star className="w-3 h-3" style={{ color: '#fbbf24' }} fill="#fbbf24" title="Pre-configured value" />
+                                      <div
+                                        key={input.name}
+                                        className="space-y-0.5"
+                                      >
+                                        <Label
+                                          htmlFor={`input-${release.id}-${pipeline.id}-${input.name}`}
+                                          className="text-xs font-medium flex items-center gap-1"
+                                          style={{ color: "#6b21a8" }}
+                                        >
+                                          {input.name
+                                            .replace(/_/g, " ")
+                                            .replace(/\b\w/g, (l) =>
+                                              l.toUpperCase(),
+                                            )}
+                                          {input.required && (
+                                            <span style={{ color: "#ec4899" }}>
+                                              {" "}
+                                              *
+                                            </span>
+                                          )}
+                                          {release.preparedInputs?.[
+                                            pipeline.id
+                                          ]?.[input.name] !== undefined && (
+                                            <Star
+                                              className="w-3 h-3"
+                                              style={{ color: "#fbbf24" }}
+                                              fill="#fbbf24"
+                                              title="Pre-configured value"
+                                            />
                                           )}
                                         </Label>
-                                        {input.type === 'boolean' ? (
-                                          <div className="flex items-center space-x-2 h-8 px-3 border border-[#d1d5db] rounded-md" style={{ background: '#ffffff' }}>
+                                        {input.type === "boolean" ? (
+                                          <div
+                                            className="flex items-center space-x-2 h-8 px-3 border border-[#d1d5db] rounded-md"
+                                            style={{ background: "#ffffff" }}
+                                          >
                                             <Checkbox
                                               id={`input-${release.id}-${pipeline.id}-${input.name}`}
                                               checked={value === true}
                                               onCheckedChange={(checked) => {
-                                                setInputValues(prev => ({
+                                                setInputValues((prev) => ({
                                                   ...prev,
                                                   [pipeline.id]: {
                                                     ...prev[pipeline.id],
@@ -1171,15 +1608,22 @@ export function ProductionReleaseTabs({
                                                 }));
                                               }}
                                             />
-                                            <Label htmlFor={`input-${release.id}-${pipeline.id}-${input.name}`} className="cursor-pointer text-xs" style={{ color: '#6b7280' }}>
-                                              {input.description || 'Enable'}
+                                            <Label
+                                              htmlFor={`input-${release.id}-${pipeline.id}-${input.name}`}
+                                              className="cursor-pointer text-xs"
+                                              style={{ color: "#6b7280" }}
+                                            >
+                                              {input.description || "Enable"}
                                             </Label>
                                           </div>
-                                        ) : (input.type === 'choice' || input.type === 'environment') && input.options && input.options.length > 0 ? (
+                                        ) : (input.type === "choice" ||
+                                            input.type === "environment") &&
+                                          input.options &&
+                                          input.options.length > 0 ? (
                                           <Select
-                                            value={value || ''}
+                                            value={value || ""}
                                             onValueChange={(val) => {
-                                              setInputValues(prev => ({
+                                              setInputValues((prev) => ({
                                                 ...prev,
                                                 [pipeline.id]: {
                                                   ...prev[pipeline.id],
@@ -1191,24 +1635,35 @@ export function ProductionReleaseTabs({
                                             <SelectTrigger
                                               id={`input-${release.id}-${pipeline.id}-${input.name}`}
                                               className="border-[#d1d5db] h-8 text-xs px-3"
-                                              style={{ background: '#ffffff', color: '#1f2937' }}
+                                              style={{
+                                                background: "#ffffff",
+                                                color: "#1f2937",
+                                              }}
                                             >
-                                              <SelectValue placeholder={input.description || `Select ${input.name}`} />
+                                              <SelectValue
+                                                placeholder={
+                                                  input.description ||
+                                                  `Select ${input.name}`
+                                                }
+                                              />
                                             </SelectTrigger>
                                             <SelectContent
                                               className="border-[#e5e7eb]"
-                                              style={{ background: '#ffffff' }}
+                                              style={{ background: "#ffffff" }}
                                             >
-                                              {input.options.map(option => {
-                                                const isDefault = pipeline.defaultInputValues?.[input.name] === option;
+                                              {input.options.map((option) => {
+                                                const isDefault =
+                                                  pipeline.defaultInputValues?.[
+                                                    input.name
+                                                  ] === option;
                                                 return (
-                                                  <div 
-                                                    key={option} 
+                                                  <div
+                                                    key={option}
                                                     className="flex items-center justify-between hover:bg-purple-50 group"
-                                                    style={{ padding: '0' }}
+                                                    style={{ padding: "0" }}
                                                   >
-                                                    <SelectItem 
-                                                      value={option} 
+                                                    <SelectItem
+                                                      value={option}
                                                       className="flex-1 cursor-pointer"
                                                     >
                                                       {option}
@@ -1218,16 +1673,34 @@ export function ProductionReleaseTabs({
                                                       onClick={(e) => {
                                                         e.preventDefault();
                                                         e.stopPropagation();
-                                                        handleSaveDefaultValue(pipeline.id, input.name, option);
+                                                        handleSaveDefaultValue(
+                                                          pipeline.id,
+                                                          input.name,
+                                                          option,
+                                                        );
                                                       }}
                                                       className="flex-shrink-0 p-2 hover:bg-purple-100 transition-colors"
-                                                      title={isDefault ? "Default value" : "Set as default"}
-                                                      style={{ color: isDefault ? '#7c3aed' : '#d1d5db' }}
+                                                      title={
+                                                        isDefault
+                                                          ? "Default value"
+                                                          : "Set as default"
+                                                      }
+                                                      style={{
+                                                        color: isDefault
+                                                          ? "#7c3aed"
+                                                          : "#d1d5db",
+                                                      }}
                                                     >
-                                                      <Star 
-                                                        className="w-3.5 h-3.5" 
-                                                        fill={isDefault ? '#7c3aed' : 'none'}
-                                                        strokeWidth={isDefault ? 2 : 1.5}
+                                                      <Star
+                                                        className="w-3.5 h-3.5"
+                                                        fill={
+                                                          isDefault
+                                                            ? "#7c3aed"
+                                                            : "none"
+                                                        }
+                                                        strokeWidth={
+                                                          isDefault ? 2 : 1.5
+                                                        }
                                                       />
                                                     </button>
                                                   </div>
@@ -1238,39 +1711,71 @@ export function ProductionReleaseTabs({
                                         ) : (
                                           <Input
                                             id={`input-${release.id}-${pipeline.id}-${input.name}`}
-                                            type={input.type === 'number' ? 'number' : 'text'}
-                                            placeholder={input.default ? String(input.default) : ''}
-                                            value={value || ''}
+                                            type={
+                                              input.type === "number"
+                                                ? "text"
+                                                : "text"
+                                            }
+                                            placeholder={
+                                              input.default
+                                                ? String(input.default)
+                                                : ""
+                                            }
+                                            value={value || ""}
                                             onChange={(e) => {
-                                              const val = input.type === 'number' ? parseFloat(e.target.value) : e.target.value;
-                                              setInputValues(prev => ({
+                                              const val =
+                                                input.type === "number"
+                                                  ? parseFloat(e.target.value)
+                                                  : e.target.value;
+                                              setInputValues((prev) => ({
                                                 ...prev,
                                                 [pipeline.id]: {
                                                   ...prev[pipeline.id],
                                                   [input.name]: val,
                                                 },
                                               }));
-                                              if (input.name === 'build_number') {
-                                                setBuildNumbers(prev => ({ ...prev, [pipeline.id]: e.target.value }));
+                                              if (
+                                                input.name === "build_number"
+                                              ) {
+                                                setBuildNumbers((prev) => ({
+                                                  ...prev,
+                                                  [pipeline.id]: e.target.value,
+                                                }));
                                               }
                                             }}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleDeploy(pipeline.id, release.id)}
+                                            onKeyDown={(e) =>
+                                              e.key === "Enter" &&
+                                              handleDeploy(
+                                                pipeline.id,
+                                                release.id,
+                                              )
+                                            }
                                             className="border-[#d1d5db] h-8 text-xs px-3"
-                                            style={{ background: '#ffffff', color: '#1f2937' }}
+                                            style={{
+                                              background: "#ffffff",
+                                              color: "#1f2937",
+                                            }}
                                           />
                                         )}
                                       </div>
                                     );
                                   })}
                                 </div>
-                                
+
                                 {/* Deploy Button */}
                                 <div className="flex justify-end pt-1">
                                   <Button
-                                    onClick={() => handleDeploy(pipeline.id, release.id)}
+                                    onClick={() =>
+                                      handleDeploy(pipeline.id, release.id)
+                                    }
                                     disabled={loadingPipelines[pipeline.id]}
                                     className="text-white h-8 text-xs px-3"
-                                    style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
+                                    style={{
+                                      background:
+                                        "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                                      boxShadow:
+                                        "0 2px 8px rgba(124, 58, 237, 0.25)",
+                                    }}
                                   >
                                     {loadingPipelines[pipeline.id] ? (
                                       <>
@@ -1297,13 +1802,15 @@ export function ProductionReleaseTabs({
                           <Button
                             onClick={() => {
                               // Select all pipelines by default
-                              setSelectedPipelines(project.pipelines.map(p => p.id));
+                              setSelectedPipelines(
+                                project.pipelines.map((p) => p.id),
+                              );
                               setEditingSelection(true); // Open in edit mode
                               setShowDeployAllDialog(true);
                             }}
                             variant="outline"
                             className="w-full border-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50"
-                            style={{ borderColor: '#a855f7', color: '#7c3aed' }}
+                            style={{ borderColor: "#a855f7", color: "#7c3aed" }}
                           >
                             <Rocket className="w-4 h-4 mr-2" />
                             Deploy Pipelines ({project.pipelines.length})
@@ -1313,24 +1820,40 @@ export function ProductionReleaseTabs({
 
                       {error && (
                         <Alert className="border-[#ef4444] bg-[#fef2f2]">
-                          <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
-                          <AlertDescription style={{ color: '#dc2626' }}>{error}</AlertDescription>
+                          <AlertCircle
+                            className="h-4 w-4"
+                            style={{ color: "#ef4444" }}
+                          />
+                          <AlertDescription style={{ color: "#dc2626" }}>
+                            {error}
+                          </AlertDescription>
                         </Alert>
                       )}
 
                       {success && (
                         <Alert className="border-[#10b981] bg-[#f0fdf4]">
-                          <CheckCircle2 className="h-4 w-4" style={{ color: '#10b981' }} />
-                          <AlertDescription style={{ color: '#059669' }}>{success}</AlertDescription>
+                          <CheckCircle2
+                            className="h-4 w-4"
+                            style={{ color: "#10b981" }}
+                          />
+                          <AlertDescription style={{ color: "#059669" }}>
+                            {success}
+                          </AlertDescription>
                         </Alert>
                       )}
-                      
+
                       {!error && !success && (
                         <Alert className="border-[#7c3aed] bg-[#faf5ff]">
-                          <Info className="h-4 w-4" style={{ color: '#7c3aed' }} />
-                          <AlertDescription style={{ color: '#6b21a8' }}>
+                          <Info
+                            className="h-4 w-4"
+                            style={{ color: "#7c3aed" }}
+                          />
+                          <AlertDescription style={{ color: "#6b21a8" }}>
                             <span className="text-xs">
-                              After triggering deployments, the system waits 3 seconds before identifying workflow runs. Deployments will be tracked in the Deployment Status section below.
+                              After triggering deployments, the system waits 3
+                              seconds before identifying workflow runs.
+                              Deployments will be tracked in the Deployment
+                              Status section below.
                             </span>
                           </AlertDescription>
                         </Alert>
@@ -1354,35 +1877,63 @@ export function ProductionReleaseTabs({
       </Tabs>
 
       {/* Deploy All Confirmation Dialog */}
-      <AlertDialog open={showDeployAllDialog} onOpenChange={setShowDeployAllDialog}>
-        <AlertDialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col" style={{ background: '#ffffff' }}>
+      <AlertDialog
+        open={showDeployAllDialog}
+        onOpenChange={setShowDeployAllDialog}
+      >
+        <AlertDialogContent
+          className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+          style={{ background: "#ffffff" }}
+        >
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2" style={{ color: '#1f2937' }}>
-              <Rocket className="w-5 h-5" style={{ color: '#7c3aed' }} />
-              Confirm Deployment - {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
+            <AlertDialogTitle
+              className="flex items-center gap-2"
+              style={{ color: "#1f2937" }}
+            >
+              <Rocket className="w-5 h-5" style={{ color: "#7c3aed" }} />
+              Confirm Deployment - {selectedPipelines.length} Pipeline
+              {selectedPipelines.length !== 1 ? "s" : ""}
             </AlertDialogTitle>
-            <AlertDialogDescription style={{ color: '#6b7280' }}>
-              Review the deployment details below before proceeding. All pipelines will be deployed sequentially.
+            <AlertDialogDescription style={{ color: "#6b7280" }}>
+              Review the deployment details below before proceeding. All
+              pipelines will be deployed sequentially.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="space-y-4 py-4 overflow-y-auto flex-1">
             {/* Deployment Summary Table */}
-            <div className="border-2 rounded-lg overflow-hidden" style={{ borderColor: '#e9d5ff' }}>
-              <div className="px-4 py-2 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)', borderBottom: '2px solid #e9d5ff' }}>
-                <div className="font-semibold flex items-center gap-3" style={{ color: '#6b21a8' }}>
+            <div
+              className="border-2 rounded-lg overflow-hidden"
+              style={{ borderColor: "#e9d5ff" }}
+            >
+              <div
+                className="px-4 py-2 flex items-center justify-between"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)",
+                  borderBottom: "2px solid #e9d5ff",
+                }}
+              >
+                <div
+                  className="font-semibold flex items-center gap-3"
+                  style={{ color: "#6b21a8" }}
+                >
                   <Activity className="w-4 h-4" />
                   <span>Deployment Summary</span>
-                  <Badge 
-                    variant="outline" 
-                    className="text-xs font-normal" 
-                    style={{ 
-                      background: '#ffffff', 
-                      color: selectedPipelines.length === project.pipelines.length ? '#10b981' : '#7c3aed', 
-                      border: `1px solid ${selectedPipelines.length === project.pipelines.length ? '#10b981' : '#c4b5fd'}` 
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-normal"
+                    style={{
+                      background: "#ffffff",
+                      color:
+                        selectedPipelines.length === project.pipelines.length
+                          ? "#10b981"
+                          : "#7c3aed",
+                      border: `1px solid ${selectedPipelines.length === project.pipelines.length ? "#10b981" : "#c4b5fd"}`,
                     }}
                   >
-                    {selectedPipelines.length} / {project.pipelines.length} selected
+                    {selectedPipelines.length} / {project.pipelines.length}{" "}
+                    selected
                   </Badge>
                 </div>
                 {!isDeploying && !editingSelection && (
@@ -1391,7 +1942,7 @@ export function ProductionReleaseTabs({
                     size="sm"
                     onClick={() => setEditingSelection(true)}
                     className="text-xs h-7"
-                    style={{ color: '#7c3aed' }}
+                    style={{ color: "#7c3aed" }}
                   >
                     Edit Selection
                   </Button>
@@ -1402,7 +1953,7 @@ export function ProductionReleaseTabs({
                     size="sm"
                     onClick={() => setEditingSelection(false)}
                     className="text-xs h-7"
-                    style={{ color: '#10b981' }}
+                    style={{ color: "#10b981" }}
                   >
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Done
@@ -1411,105 +1962,185 @@ export function ProductionReleaseTabs({
               </div>
               <Table>
                 <TableHeader>
-                  <TableRow style={{ background: '#fafafa' }}>
-                    {editingSelection && <TableHead className="w-12"></TableHead>}
-                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Pipeline</TableHead>
-                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Repository</TableHead>
-                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Branch</TableHead>
-                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Environment</TableHead>
-                    <TableHead className="font-semibold" style={{ color: '#6b21a8' }}>Build Number</TableHead>
+                  <TableRow style={{ background: "#fafafa" }}>
+                    {editingSelection && (
+                      <TableHead className="w-12"></TableHead>
+                    )}
+                    <TableHead
+                      className="font-semibold"
+                      style={{ color: "#6b21a8" }}
+                    >
+                      Pipeline
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold"
+                      style={{ color: "#6b21a8" }}
+                    >
+                      Repository
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold"
+                      style={{ color: "#6b21a8" }}
+                    >
+                      Branch
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold"
+                      style={{ color: "#6b21a8" }}
+                    >
+                      Environment
+                    </TableHead>
+                    <TableHead
+                      className="font-semibold"
+                      style={{ color: "#6b21a8" }}
+                    >
+                      Build Number
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(editingSelection ? project.pipelines : project.pipelines.filter(p => selectedPipelines.includes(p.id)))
-                    .map((pipeline, index) => {
-                      const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
-                      const buildNumber = inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
-                      const isSelected = selectedPipelines.includes(pipeline.id);
-                      
-                      // Check if this pipeline requires build_number
-                      const allInputs = workflowInputs[pipeline.id] || [];
-                      const buildNumberInput = allInputs.find(input => input.name === 'build_number');
-                      
-                      return (
-                        <TableRow 
-                          key={pipeline.id}
-                          className="hover:bg-purple-50/30"
-                          style={{ 
-                            borderColor: '#f3e8ff',
-                            background: index % 2 === 0 ? '#ffffff' : '#fafafa',
-                            opacity: editingSelection && !isSelected ? 0.5 : 1
-                          }}
-                        >
-                          {editingSelection && (
-                            <TableCell className="w-12">
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={() => {
-                                  if (isSelected) {
-                                    setSelectedPipelines(prev => prev.filter(id => id !== pipeline.id));
-                                  } else {
-                                    setSelectedPipelines(prev => [...prev, pipeline.id]);
-                                  }
-                                }}
-                              />
-                            </TableCell>
-                          )}
-                          <TableCell>
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs" 
-                              style={{ color: '#7c3aed', background: '#fefcff', borderColor: '#c4b5fd' }}
+                  {(editingSelection
+                    ? project.pipelines
+                    : project.pipelines.filter((p) =>
+                        selectedPipelines.includes(p.id),
+                      )
+                  ).map((pipeline, index) => {
+                    const repo = project.repositories.find(
+                      (r) => r.id === pipeline.repositoryId,
+                    );
+                    const buildNumber =
+                      inputValues[pipeline.id]?.build_number ||
+                      buildNumbers[pipeline.id];
+                    const isSelected = selectedPipelines.includes(pipeline.id);
+
+                    // Check if this pipeline requires build_number
+                    const allInputs = workflowInputs[pipeline.id] || [];
+                    const buildNumberInput = allInputs.find(
+                      (input) => input.name === "build_number",
+                    );
+
+                    return (
+                      <TableRow
+                        key={pipeline.id}
+                        className="hover:bg-purple-50/30"
+                        style={{
+                          borderColor: "#f3e8ff",
+                          background: index % 2 === 0 ? "#ffffff" : "#fafafa",
+                          opacity: editingSelection && !isSelected ? 0.5 : 1,
+                        }}
+                      >
+                        {editingSelection && (
+                          <TableCell className="w-12">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => {
+                                if (isSelected) {
+                                  setSelectedPipelines((prev) =>
+                                    prev.filter((id) => id !== pipeline.id),
+                                  );
+                                } else {
+                                  setSelectedPipelines((prev) => [
+                                    ...prev,
+                                    pipeline.id,
+                                  ]);
+                                }
+                              }}
+                            />
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className="text-xs"
+                            style={{
+                              color: "#7c3aed",
+                              background: "#fefcff",
+                              borderColor: "#c4b5fd",
+                            }}
+                          >
+                            {pipeline.name}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div
+                            className="flex items-center gap-1 text-sm"
+                            style={{ color: "#7c3aed" }}
+                          >
+                            <FolderGit2 className="w-3.5 h-3.5" />
+                            {repo?.name || "Unknown"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div
+                            className="flex items-center gap-1 text-xs font-mono"
+                            style={{ color: "#6b7280" }}
+                          >
+                            <GitBranch className="w-3 h-3" />
+                            {pipeline.branch}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {pipeline.environment ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs font-mono"
+                              style={{
+                                background:
+                                  pipeline.environment === "production"
+                                    ? "#fef2f2"
+                                    : "#f0fdf4",
+                                color:
+                                  pipeline.environment === "production"
+                                    ? "#dc2626"
+                                    : "#16a34a",
+                                borderColor:
+                                  pipeline.environment === "production"
+                                    ? "#fca5a5"
+                                    : "#86efac",
+                              }}
                             >
-                              {pipeline.name}
+                              {pipeline.environment}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1 text-sm" style={{ color: '#7c3aed' }}>
-                              <FolderGit2 className="w-3.5 h-3.5" />
-                              {repo?.name || 'Unknown'}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1 text-xs font-mono" style={{ color: '#6b7280' }}>
-                              <GitBranch className="w-3 h-3" />
-                              {pipeline.branch}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {pipeline.environment ? (
-                              <Badge 
-                                variant="outline" 
-                                className="text-xs font-mono" 
-                                style={{ 
-                                  background: pipeline.environment === 'production' ? '#fef2f2' : '#f0fdf4',
-                                  color: pipeline.environment === 'production' ? '#dc2626' : '#16a34a',
-                                  borderColor: pipeline.environment === 'production' ? '#fca5a5' : '#86efac'
-                                }}
-                              >
-                                {pipeline.environment}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs" style={{ color: '#9ca3af' }}>-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {buildNumber ? (
-                              <code 
-                                className="px-2 py-1 rounded font-semibold text-sm" 
-                                style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)', color: '#6b21a8' }}
-                              >
-                                {buildNumber}
-                              </code>
-                            ) : buildNumberInput ? (
-                              <span className="text-xs" style={{ color: '#ef4444' }}>Required</span>
-                            ) : (
-                              <span className="text-xs" style={{ color: '#9ca3af' }}>N/A</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                          ) : (
+                            <span
+                              className="text-xs"
+                              style={{ color: "#9ca3af" }}
+                            >
+                              -
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {buildNumber ? (
+                            <code
+                              className="px-2 py-1 rounded font-semibold text-sm"
+                              style={{
+                                background:
+                                  "linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%)",
+                                color: "#6b21a8",
+                              }}
+                            >
+                              {buildNumber}
+                            </code>
+                          ) : buildNumberInput ? (
+                            <span
+                              className="text-xs"
+                              style={{ color: "#ef4444" }}
+                            >
+                              Required
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs"
+                              style={{ color: "#9ca3af" }}
+                            >
+                              N/A
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -1517,30 +2148,43 @@ export function ProductionReleaseTabs({
             {/* Warning if no pipelines selected */}
             {!isDeploying && selectedPipelines.length === 0 && (
               <Alert className="border-[#ef4444] bg-[#fef2f2]">
-                <AlertCircle className="h-4 w-4" style={{ color: '#ef4444' }} />
-                <AlertDescription style={{ color: '#dc2626' }}>
-                  No pipelines selected. Please select at least one pipeline to deploy.
+                <AlertCircle className="h-4 w-4" style={{ color: "#ef4444" }} />
+                <AlertDescription style={{ color: "#dc2626" }}>
+                  No pipelines selected. Please select at least one pipeline to
+                  deploy.
                 </AlertDescription>
               </Alert>
             )}
 
             {/* Warning if not all pipelines selected */}
-            {!isDeploying && selectedPipelines.length > 0 && selectedPipelines.length < project.pipelines.length && (
-              <Alert className="border-[#f59e0b] bg-[#fffbeb]">
-                <AlertCircle className="h-4 w-4" style={{ color: '#f59e0b' }} />
-                <AlertDescription style={{ color: '#92400e' }}>
-                  {project.pipelines.length - selectedPipelines.length} pipeline{project.pipelines.length - selectedPipelines.length !== 1 ? 's' : ''} will not be deployed.
-                </AlertDescription>
-              </Alert>
-            )}
+            {!isDeploying &&
+              selectedPipelines.length > 0 &&
+              selectedPipelines.length < project.pipelines.length && (
+                <Alert className="border-[#f59e0b] bg-[#fffbeb]">
+                  <AlertCircle
+                    className="h-4 w-4"
+                    style={{ color: "#f59e0b" }}
+                  />
+                  <AlertDescription style={{ color: "#92400e" }}>
+                    {project.pipelines.length - selectedPipelines.length}{" "}
+                    pipeline
+                    {project.pipelines.length - selectedPipelines.length !== 1
+                      ? "s"
+                      : ""}{" "}
+                    will not be deployed.
+                  </AlertDescription>
+                </Alert>
+              )}
 
             {/* Info message */}
             {!isDeploying && selectedPipelines.length > 0 && (
               <Alert className="border-[#7c3aed] bg-[#faf5ff]">
-                <Info className="h-4 w-4" style={{ color: '#7c3aed' }} />
-                <AlertDescription style={{ color: '#6b21a8' }}>
+                <Info className="h-4 w-4" style={{ color: "#7c3aed" }} />
+                <AlertDescription style={{ color: "#6b21a8" }}>
                   <span className="text-xs">
-                    All deployments will be grouped in a single batch. The system will wait 3 seconds after triggering each workflow before identifying the run.
+                    All deployments will be grouped in a single batch. The
+                    system will wait 3 seconds after triggering each workflow
+                    before identifying the run.
                   </span>
                 </AlertDescription>
               </Alert>
@@ -1549,12 +2193,17 @@ export function ProductionReleaseTabs({
             {/* Progress Bar */}
             {isDeploying && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm" style={{ color: '#6b7280' }}>
+                <div
+                  className="flex justify-between text-sm"
+                  style={{ color: "#6b7280" }}
+                >
                   <span>Deploying pipelines...</span>
-                  <span>{deployProgress.current} / {deployProgress.total}</span>
+                  <span>
+                    {deployProgress.current} / {deployProgress.total}
+                  </span>
                 </div>
-                <Progress 
-                  value={(deployProgress.current / deployProgress.total) * 100} 
+                <Progress
+                  value={(deployProgress.current / deployProgress.total) * 100}
                   className="h-2"
                 />
               </div>
@@ -1562,10 +2211,10 @@ export function ProductionReleaseTabs({
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel 
+            <AlertDialogCancel
               disabled={isDeploying}
               className="border-2"
-              style={{ borderColor: '#d1d5db', color: '#374151' }}
+              style={{ borderColor: "#d1d5db", color: "#374151" }}
             >
               Cancel
             </AlertDialogCancel>
@@ -1573,7 +2222,10 @@ export function ProductionReleaseTabs({
               onClick={handleConfirmDeployAll}
               disabled={selectedPipelines.length === 0 || isDeploying}
               className="text-white"
-              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', boxShadow: '0 2px 8px rgba(124, 58, 237, 0.25)' }}
+              style={{
+                background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+                boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
+              }}
             >
               {isDeploying ? (
                 <>
@@ -1583,7 +2235,8 @@ export function ProductionReleaseTabs({
               ) : (
                 <>
                   <Rocket className="w-4 h-4 mr-2" />
-                  Confirm & Deploy {selectedPipelines.length} Pipeline{selectedPipelines.length !== 1 ? 's' : ''}
+                  Confirm & Deploy {selectedPipelines.length} Pipeline
+                  {selectedPipelines.length !== 1 ? "s" : ""}
                 </>
               )}
             </AlertDialogAction>
@@ -1592,17 +2245,26 @@ export function ProductionReleaseTabs({
       </AlertDialog>
 
       {/* New Release Dialog */}
-      <Dialog open={showNewReleaseDialog} onOpenChange={setShowNewReleaseDialog}>
-        <DialogContent className="sm:max-w-[500px]" style={{ background: '#1e293b', borderColor: '#475569' }}>
+      <Dialog
+        open={showNewReleaseDialog}
+        onOpenChange={setShowNewReleaseDialog}
+      >
+        <DialogContent
+          className="sm:max-w-[500px]"
+          style={{ background: "#1e293b", borderColor: "#475569" }}
+        >
           <DialogHeader>
-            <DialogTitle style={{ color: '#e9d5ff' }}>Create New Production Release</DialogTitle>
-            <DialogDescription style={{ color: '#cbd5e1' }}>
-              Start a new production release process with a global release number.
+            <DialogTitle style={{ color: "#e9d5ff" }}>
+              Create New Production Release
+            </DialogTitle>
+            <DialogDescription style={{ color: "#cbd5e1" }}>
+              Start a new production release process with a global release
+              number.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="release-number" style={{ color: '#e9d5ff' }}>
+              <Label htmlFor="release-number" style={{ color: "#e9d5ff" }}>
                 Release Number
               </Label>
               <Input
@@ -1614,7 +2276,7 @@ export function ProductionReleaseTabs({
                 }}
                 placeholder="e.g., 2025.10.1"
                 className="bg-slate-700 border-slate-600"
-                style={{ color: '#e9d5ff' }}
+                style={{ color: "#e9d5ff" }}
               />
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -1630,26 +2292,39 @@ export function ProductionReleaseTabs({
                 <label
                   htmlFor="auto-number"
                   className="text-sm cursor-pointer"
-                  style={{ color: '#cbd5e1' }}
+                  style={{ color: "#cbd5e1" }}
                 >
                   Use auto-generated number (YYYY.MM.sequence)
                 </label>
               </div>
             </div>
-            <div className="rounded-lg p-3" style={{ background: 'rgba(147, 197, 253, 0.1)', border: '1px solid #3b82f6' }}>
-              <p className="text-sm" style={{ color: '#93c5fd' }}>
-                <strong>Tip:</strong> Release numbers follow the format YYYY.MM.X where X is an auto-incremented number for each release in the month.
+            <div
+              className="rounded-lg p-3"
+              style={{
+                background: "rgba(147, 197, 253, 0.1)",
+                border: "1px solid #3b82f6",
+              }}
+            >
+              <p className="text-sm" style={{ color: "#93c5fd" }}>
+                <strong>Tip:</strong> Release numbers follow the format
+                YYYY.MM.X where X is an auto-incremented number for each release
+                in the month.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewReleaseDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowNewReleaseDialog(false)}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleCreateNewRelease}
               className="text-white"
-              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+              style={{
+                background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+              }}
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Release
@@ -1660,15 +2335,22 @@ export function ProductionReleaseTabs({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent style={{ background: '#1e293b', borderColor: '#475569' }}>
+        <AlertDialogContent
+          style={{ background: "#1e293b", borderColor: "#475569" }}
+        >
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: '#e9d5ff' }}>Delete Production Release?</AlertDialogTitle>
-            <AlertDialogDescription style={{ color: '#cbd5e1' }}>
-              This will permanently delete this production release and all its associated data. This action cannot be undone.
+            <AlertDialogTitle style={{ color: "#e9d5ff" }}>
+              Delete Production Release?
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ color: "#cbd5e1" }}>
+              This will permanently delete this production release and all its
+              associated data. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteRelease}
               className="bg-red-600 hover:bg-red-700 text-white"
@@ -1680,57 +2362,99 @@ export function ProductionReleaseTabs({
       </AlertDialog>
 
       {/* Prepare Inputs Dialog */}
-      <Dialog open={showPrepareInputsDialog} onOpenChange={setShowPrepareInputsDialog}>
-        <DialogContent className="sm:max-w-[700px]" style={{ background: '#1e293b', borderColor: '#475569' }}>
+      <Dialog
+        open={showPrepareInputsDialog}
+        onOpenChange={setShowPrepareInputsDialog}
+      >
+        <DialogContent
+          className="sm:max-w-[700px]"
+          style={{ background: "#1e293b", borderColor: "#475569" }}
+        >
           <DialogHeader>
-            <DialogTitle style={{ color: '#e9d5ff' }}>
+            <DialogTitle style={{ color: "#e9d5ff" }}>
               <div className="flex items-center gap-2">
-                <Star className="w-5 h-5" style={{ color: '#fbbf24' }} />
+                <Star className="w-5 h-5" style={{ color: "#fbbf24" }} />
                 Prepare Workflow Inputs
               </div>
             </DialogTitle>
-            <DialogDescription style={{ color: '#cbd5e1' }}>
-              Pre-configure all workflow inputs for each pipeline. These will be saved and automatically populated when you return to this release.
+            <DialogDescription style={{ color: "#cbd5e1" }}>
+              Pre-configure all workflow inputs for each pipeline. These will be
+              saved and automatically populated when you return to this release.
             </DialogDescription>
           </DialogHeader>
-          
+
           {/* Favorite Values Info */}
           {(() => {
-            const favoriteCount = project.pipelines.reduce((count, pipeline) => {
-              return count + (pipeline.defaultInputValues ? Object.keys(pipeline.defaultInputValues).length : 0);
-            }, 0);
-            
+            const favoriteCount = project.pipelines.reduce(
+              (count, pipeline) => {
+                return (
+                  count +
+                  (pipeline.defaultInputValues
+                    ? Object.keys(pipeline.defaultInputValues).length
+                    : 0)
+                );
+              },
+              0,
+            );
+
             return favoriteCount > 0 ? (
-              <div className="mx-6 mb-2 rounded-lg p-3 border" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: '#fbbf24' }}>
+              <div
+                className="mx-6 mb-2 rounded-lg p-3 border"
+                style={{
+                  background: "rgba(251, 191, 36, 0.1)",
+                  borderColor: "#fbbf24",
+                }}
+              >
                 <div className="flex items-start gap-2">
-                  <Star className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#fbbf24' }} fill="#fbbf24" />
-                  <p className="text-sm" style={{ color: '#fcd34d' }}>
-                    <strong>{favoriteCount} favorite value{favoriteCount > 1 ? 's' : ''}</strong> automatically loaded from your saved preferences.
+                  <Star
+                    className="w-4 h-4 flex-shrink-0 mt-0.5"
+                    style={{ color: "#fbbf24" }}
+                    fill="#fbbf24"
+                  />
+                  <p className="text-sm" style={{ color: "#fcd34d" }}>
+                    <strong>
+                      {favoriteCount} favorite value
+                      {favoriteCount > 1 ? "s" : ""}
+                    </strong>{" "}
+                    automatically loaded from your saved preferences.
                   </p>
                 </div>
               </div>
             ) : null;
           })()}
-          
+
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
-            {project.pipelines.map(pipeline => {
-              const repo = project.repositories.find(r => r.id === pipeline.repositoryId);
+            {project.pipelines.map((pipeline) => {
+              const repo = project.repositories.find(
+                (r) => r.id === pipeline.repositoryId,
+              );
               const latestBuild = latestBuilds[pipeline.id];
               const allInputs = workflowInputs[pipeline.id] || [];
-              
+
               return (
-                <div key={pipeline.id} className="space-y-3 p-4 rounded-lg border-2" style={{ borderColor: '#475569', background: '#0f172a' }}>
+                <div
+                  key={pipeline.id}
+                  className="space-y-3 p-4 rounded-lg border-2"
+                  style={{ borderColor: "#475569", background: "#0f172a" }}
+                >
                   <div className="flex items-start justify-between">
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <GitBranch className="w-4 h-4" style={{ color: '#a78bfa' }} />
-                        <Label style={{ color: '#e9d5ff' }} className="font-semibold">
+                        <GitBranch
+                          className="w-4 h-4"
+                          style={{ color: "#a78bfa" }}
+                        />
+                        <Label
+                          style={{ color: "#e9d5ff" }}
+                          className="font-semibold"
+                        >
                           {pipeline.name}
                         </Label>
                       </div>
                       {repo && (
-                        <div className="text-xs" style={{ color: '#94a3b8' }}>
-                          {repo.owner}/{repo.repo} • {pipeline.branch} {pipeline.environment && `• ${pipeline.environment}`}
+                        <div className="text-xs" style={{ color: "#94a3b8" }}>
+                          {repo.owner}/{repo.repo} • {pipeline.branch}{" "}
+                          {pipeline.environment && `• ${pipeline.environment}`}
                         </div>
                       )}
                     </div>
@@ -1738,15 +2462,17 @@ export function ProductionReleaseTabs({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setPreparedInputs(prev => ({ 
-                          ...prev, 
-                          [pipeline.id]: { 
-                            ...prev[pipeline.id], 
-                            build_number: latestBuild.buildNumber || '' 
-                          } 
-                        }))}
+                        onClick={() =>
+                          setPreparedInputs((prev) => ({
+                            ...prev,
+                            [pipeline.id]: {
+                              ...prev[pipeline.id],
+                              build_number: latestBuild.buildNumber || "",
+                            },
+                          }))
+                        }
                         className="flex-shrink-0"
-                        style={{ borderColor: '#475569', color: '#cbd5e1' }}
+                        style={{ borderColor: "#475569", color: "#cbd5e1" }}
                         title={`Use latest build: ${latestBuild.buildNumber}`}
                       >
                         <Clock className="w-3 h-3 mr-1" />
@@ -1754,34 +2480,50 @@ export function ProductionReleaseTabs({
                       </Button>
                     )}
                   </div>
-                  
+
                   {allInputs.length > 0 ? (
                     <div className="grid grid-cols-2 gap-3">
-                      {allInputs.map(input => {
-                        const currentValue = preparedInputs[pipeline.id]?.[input.name];
-                        const isFavorite = pipeline.defaultInputValues?.[input.name] !== undefined;
-                        
+                      {allInputs.map((input) => {
+                        const currentValue =
+                          preparedInputs[pipeline.id]?.[input.name];
+                        const isFavorite =
+                          pipeline.defaultInputValues?.[input.name] !==
+                          undefined;
+
                         return (
                           <div key={input.name} className="space-y-1">
-                            <Label className="text-xs flex items-center gap-1" style={{ color: '#cbd5e1' }}>
-                              {input.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              {input.required && <span style={{ color: '#fca5a5' }}> *</span>}
+                            <Label
+                              className="text-xs flex items-center gap-1"
+                              style={{ color: "#cbd5e1" }}
+                            >
+                              {input.name
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                              {input.required && (
+                                <span style={{ color: "#fca5a5" }}> *</span>
+                              )}
                               {isFavorite && (
-                                <Star 
-                                  className="w-3 h-3" 
-                                  style={{ color: '#fbbf24' }} 
-                                  fill="#fbbf24" 
+                                <Star
+                                  className="w-3 h-3"
+                                  style={{ color: "#fbbf24" }}
+                                  fill="#fbbf24"
                                   title="This input has a saved favorite value"
                                 />
                               )}
                             </Label>
-                            
-                            {input.type === 'boolean' ? (
-                              <div className="flex items-center space-x-2 h-9 px-3 border rounded-md" style={{ background: '#1e293b', borderColor: '#475569' }}>
+
+                            {input.type === "boolean" ? (
+                              <div
+                                className="flex items-center space-x-2 h-9 px-3 border rounded-md"
+                                style={{
+                                  background: "#1e293b",
+                                  borderColor: "#475569",
+                                }}
+                              >
                                 <Checkbox
                                   checked={currentValue === true}
                                   onCheckedChange={(checked) => {
-                                    setPreparedInputs(prev => ({
+                                    setPreparedInputs((prev) => ({
                                       ...prev,
                                       [pipeline.id]: {
                                         ...prev[pipeline.id],
@@ -1790,15 +2532,21 @@ export function ProductionReleaseTabs({
                                     }));
                                   }}
                                 />
-                                <Label className="cursor-pointer text-xs" style={{ color: '#94a3b8' }}>
-                                  {input.description || 'Enable'}
+                                <Label
+                                  className="cursor-pointer text-xs"
+                                  style={{ color: "#94a3b8" }}
+                                >
+                                  {input.description || "Enable"}
                                 </Label>
                               </div>
-                            ) : (input.type === 'choice' || input.type === 'environment') && input.options && input.options.length > 0 ? (
+                            ) : (input.type === "choice" ||
+                                input.type === "environment") &&
+                              input.options &&
+                              input.options.length > 0 ? (
                               <Select
-                                value={currentValue || ''}
+                                value={currentValue || ""}
                                 onValueChange={(val) => {
-                                  setPreparedInputs(prev => ({
+                                  setPreparedInputs((prev) => ({
                                     ...prev,
                                     [pipeline.id]: {
                                       ...prev[pipeline.id],
@@ -1809,13 +2557,31 @@ export function ProductionReleaseTabs({
                               >
                                 <SelectTrigger
                                   className="h-9 text-xs"
-                                  style={{ background: '#1e293b', borderColor: '#475569', color: '#e9d5ff' }}
+                                  style={{
+                                    background: "#1e293b",
+                                    borderColor: "#475569",
+                                    color: "#e9d5ff",
+                                  }}
                                 >
-                                  <SelectValue placeholder={input.description || `Select ${input.name}`} />
+                                  <SelectValue
+                                    placeholder={
+                                      input.description ||
+                                      `Select ${input.name}`
+                                    }
+                                  />
                                 </SelectTrigger>
-                                <SelectContent style={{ background: '#1e293b', borderColor: '#475569' }}>
-                                  {input.options.map(option => (
-                                    <SelectItem key={option} value={option} style={{ color: '#e9d5ff' }}>
+                                <SelectContent
+                                  style={{
+                                    background: "#1e293b",
+                                    borderColor: "#475569",
+                                  }}
+                                >
+                                  {input.options.map((option) => (
+                                    <SelectItem
+                                      key={option}
+                                      value={option}
+                                      style={{ color: "#e9d5ff" }}
+                                    >
                                       {option}
                                     </SelectItem>
                                   ))}
@@ -1823,12 +2589,21 @@ export function ProductionReleaseTabs({
                               </Select>
                             ) : (
                               <Input
-                                type={input.type === 'number' ? 'number' : 'text'}
-                                placeholder={input.default ? String(input.default) : input.description || ''}
-                                value={currentValue || ''}
+                                type={
+                                  input.type === "number" ? "number" : "text"
+                                }
+                                placeholder={
+                                  input.default
+                                    ? String(input.default)
+                                    : input.description || ""
+                                }
+                                value={currentValue || ""}
                                 onChange={(e) => {
-                                  const val = input.type === 'number' ? parseFloat(e.target.value) : e.target.value;
-                                  setPreparedInputs(prev => ({
+                                  const val =
+                                    input.type === "number"
+                                      ? parseFloat(e.target.value)
+                                      : e.target.value;
+                                  setPreparedInputs((prev) => ({
                                     ...prev,
                                     [pipeline.id]: {
                                       ...prev[pipeline.id],
@@ -1837,7 +2612,11 @@ export function ProductionReleaseTabs({
                                   }));
                                 }}
                                 className="h-9 text-xs"
-                                style={{ background: '#1e293b', borderColor: '#475569', color: '#e9d5ff' }}
+                                style={{
+                                  background: "#1e293b",
+                                  borderColor: "#475569",
+                                  color: "#e9d5ff",
+                                }}
                               />
                             )}
                           </div>
@@ -1845,7 +2624,10 @@ export function ProductionReleaseTabs({
                       })}
                     </div>
                   ) : (
-                    <div className="text-sm text-center py-4" style={{ color: '#94a3b8' }}>
+                    <div
+                      className="text-sm text-center py-4"
+                      style={{ color: "#94a3b8" }}
+                    >
                       No workflow inputs detected for this pipeline
                     </div>
                   )}
@@ -1853,22 +2635,38 @@ export function ProductionReleaseTabs({
               );
             })}
           </div>
-          <div className="rounded-lg p-3 border" style={{ background: 'rgba(251, 191, 36, 0.1)', borderColor: '#fbbf24' }}>
+          <div
+            className="rounded-lg p-3 border"
+            style={{
+              background: "rgba(251, 191, 36, 0.1)",
+              borderColor: "#fbbf24",
+            }}
+          >
             <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#fbbf24' }} />
-              <p className="text-sm" style={{ color: '#fcd34d' }}>
-                <strong>Tip:</strong> All workflow inputs will be saved and automatically loaded when you come back to this release. You can modify them at any time before deploying.
+              <Info
+                className="w-4 h-4 flex-shrink-0 mt-0.5"
+                style={{ color: "#fbbf24" }}
+              />
+              <p className="text-sm" style={{ color: "#fcd34d" }}>
+                <strong>Tip:</strong> All workflow inputs will be saved and
+                automatically loaded when you come back to this release. You can
+                modify them at any time before deploying.
               </p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPrepareInputsDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPrepareInputsDialog(false)}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSavePreparedInputs}
               className="text-white"
-              style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}
+              style={{
+                background: "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
+              }}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Save All Inputs
@@ -1878,17 +2676,18 @@ export function ProductionReleaseTabs({
       </Dialog>
 
       {/* Report Generator Dialog */}
-      {activeTab && (() => {
-        const currentRelease = releases.find(r => r.id === activeTab);
-        return currentRelease ? (
-          <ReportGenerator
-            open={showReportDialog}
-            onOpenChange={setShowReportDialog}
-            release={currentRelease}
-            project={project}
-          />
-        ) : null;
-      })()}
+      {activeTab &&
+        (() => {
+          const currentRelease = releases.find((r) => r.id === activeTab);
+          return currentRelease ? (
+            <ReportGenerator
+              open={showReportDialog}
+              onOpenChange={setShowReportDialog}
+              release={currentRelease}
+              project={project}
+            />
+          ) : null;
+        })()}
     </>
   );
 }
