@@ -37,7 +37,7 @@ const IconComponent = ({
   const finalSize = (size && sizeMap[size]) || size || "24px";
 
   // Import the SVG dynamically
-  const iconPath = `assets/icons/${name}.svg`;
+  const iconPath = `${import.meta.env.BASE_URL}assets/icons/${name}.svg`;
 
   // Define color filters for different semantic colors
   // These CSS variables should be defined in your global CSS
