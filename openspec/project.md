@@ -13,10 +13,11 @@ GitHub Actions Deployment Dashboard is a web application that provides a unified
 - **Frontend**: React 18 + TypeScript (strict mode)
 - **Styling**: Tailwind CSS + Shadcn/ui components with custom gradient themes
 - **State Management**: React Hooks + localStorage + IndexedDB (dual persistence)
-- **Build Tool**: Vite 6.3.5 with HMR and optimized builds
+- **Build Tool**: Vite 6.3.5 with HMR and optimized builds (`@vitejs/plugin-react-swc` for fast SWC transforms)
 - **Icons**: Lucide React (1000+ icons)
 - **YAML Parsing**: js-yaml for workflow file analysis
-- **Deployment**: GitHub Actions → GitHub Pages with automated CI/CD
+- **Charts**: Recharts for data visualization
+- **Deployment**: GitHub Actions → GitHub Pages (`base: '/Githubdeploymentdashboard/'`) with automated CI/CD
 - **API Integration**: GitHub REST API v4 with rate limiting awareness
 
 ## Project Conventions
@@ -71,7 +72,7 @@ GitHub Actions Deployment Dashboard is a web application that provides a unified
   - Error handling and edge cases
 
 ### Git Workflow
-- **Branching**: Feature branches from `main` with descriptive names
+- **Branching**: `develop` is the integration branch; feature branches cut from `develop`, merged to `main` for releases
 - **Commit Messages**: Conventional Commits format
   - `feat:` - New features and enhancements
   - `fix:` - Bug fixes and patches
@@ -120,36 +121,70 @@ Sequential 8-step workflow with state persistence:
 
 ### Data Models
 ```typescript
-interface Project {
+interface Repository {
   id: string;
   name: string;
-  repositories: Repository[];
-  pipelines: Pipeline[];
-  isProductionRelease?: boolean;
-  createdAt: number;
-  updatedAt: number;
+  owner: string;
+  repo: string;
 }
 
 interface Pipeline {
   id: string;
   name: string;
-  repositoryId: string;
   workflowFile: string;
   branch: string;
-  environment?: string;
+  environment?: string;           // e.g. 'qa', 'staging', 'prod'
+  repositoryId: string;
   defaultInputValues?: Record<string, any>;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  repositories: Repository[];
+  pipelines: Pipeline[];
+  createdAt: number;
+  isProductionRelease?: boolean;
 }
 
 interface Deployment {
   id: string;
   projectId: string;
   pipelineId: string;
+  repositoryId: string;
   buildNumber: string;
+  branch: string;                 // e.g. 'develop', 'main'
+  environment?: string;           // e.g. 'qa', 'staging', 'prod'
+  globalReleaseNumber?: string;   // Encompasses all pipeline builds
+  batchId?: string;               // Groups same-session deployments
+  productionReleaseId?: string;   // Link to ProductionRelease
   status: 'pending' | 'in_progress' | 'success' | 'failure';
-  batchId?: string;
   workflowRunId?: number;
   startedAt: number;
   completedAt?: number;
+}
+
+interface ProductionReleaseStep {
+  stepId: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  completedAt?: number;
+  completedBy?: string;
+  notes?: string;
+  metadata?: Record<string, any>;
+}
+
+interface ProductionRelease {
+  id: string;
+  releaseNumber: string;          // e.g. '2025.10.1'
+  name: string;
+  projectId: string;
+  createdAt: number | string;
+  status: 'draft' | 'in_progress' | 'completed' | 'cancelled';
+  steps: ProductionReleaseStep[];
+  deploymentIds: string[];
+  stagingDeploymentIds?: string[];
+  productionDeploymentIds?: string[];
+  preparedInputs?: { [pipelineId: string]: Record<string, any> };
 }
 ```
 
@@ -175,6 +210,7 @@ interface Deployment {
 
 ### Data Persistence
 - **Dual Storage**: localStorage (primary) + IndexedDB (backup) for reliability
+- **localStorage Keys**: `github_token`, `github_user`, `deployments`, `production_releases`; projects stored in IndexedDB (`github-deploy-db`, store: `projects`)
 - **No Cloud Sync**: Data tied to specific browser/device combination
 - **Export/Import**: JSON-based backup and team sharing mechanism
 - **Data Migration**: Automatic schema updates for backward compatibility
@@ -182,7 +218,7 @@ interface Deployment {
 ## External Dependencies
 
 ### GitHub API
-- **REST API v4**: Primary integration for all GitHub operations
+- **REST API (v3)**: Primary integration for all GitHub operations (note: v4 is GraphQL — this app uses the REST API at `api.github.com`)
 - **Key Endpoints**:
   - `/repos/{owner}/{repo}/actions/workflows` - Workflow discovery and input parsing
   - `/repos/{owner}/{repo}/actions/runs` - Status monitoring and run details
@@ -205,7 +241,6 @@ interface Deployment {
 
 ### Development Tools
 - **TypeScript**: Strict type checking with comprehensive type definitions
-- **ESLint + Prettier**: Code quality and formatting (implied by modern setup)
 - **PostCSS**: CSS processing for Tailwind and custom styles
 
 ## Key Features Implementation
@@ -232,27 +267,39 @@ interface Deployment {
 ```
 src/
 ├── components/
-│   ├── ui/                          # Shadcn/ui component library
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── dialog.tsx
-│   │   └── ...
-│   ├── DeploymentDashboard.tsx      # Main deployment interface (1000+ lines)
-│   ├── ProductionReleaseProcess.tsx # 8-step production workflow
-│   ├── ProductionReleaseTabs.tsx    # Tabbed production interface
-│   ├── ProjectManager.tsx           # Project CRUD operations
-│   └── ReleaseCreator.tsx          # GitHub release creation
+│   ├── ui/                           # Shadcn/ui component library (button, card, dialog, …)
+│   ├── common/                       # Shared sub-components (currently scaffolded)
+│   ├── deployment/                   # Deployment-specific sub-components (scaffolded)
+│   ├── forms/                        # Form sub-components (scaffolded)
+│   ├── production/                   # Production release sub-components (scaffolded)
+│   ├── figma/
+│   │   └── ImageWithFallback.tsx
+│   ├── App.tsx                       # Root application component
+│   ├── BuildVersionUpdater.tsx       # Build version management UI
+│   ├── DeploymentDashboard.tsx       # Main deployment interface (~1084 lines)
+│   ├── DeploymentStatusSection.tsx   # Deployment status display
+│   ├── Header.tsx                    # App header with auth/nav
+│   ├── IconComponent.tsx             # Custom icon wrapper
+│   ├── ImportExportDialog.tsx        # JSON backup/restore dialog
+│   ├── ProductionReleaseProcess.tsx  # 8-step production workflow (non-tabbed)
+│   ├── ProductionReleaseTabs.tsx     # Tabbed production interface
+│   ├── ProductionStepper.tsx         # 5-step visual stepper component
+│   ├── ProjectConfig.tsx             # Project create/edit form
+│   ├── ProjectList.tsx               # Project list and selection
+│   ├── ReleaseCreator.tsx            # GitHub release creation
+│   ├── ReportGenerator.tsx           # Deployment report generation
+│   └── TokenSetup.tsx                # GitHub PAT configuration screen
 ├── lib/
-│   ├── github.ts                   # GitHub API client with rate limiting
-│   ├── storage.ts                  # Dual persistence layer (localStorage + IndexedDB)
-│   └── utils.ts                    # Utility functions and helpers
+│   ├── github.ts                     # GitHub REST API client
+│   ├── storage.ts                    # Dual persistence layer (localStorage + IndexedDB)
+│   └── utils/                        # Utility helpers (scaffolded)
 ├── styles/
-│   └── globals.css                 # Global styles and Tailwind configuration
-└── App.tsx                         # Root application component
+│   └── globals.css                   # Global styles and Tailwind configuration
+└── types/                            # Shared TypeScript type definitions
 ```
 
 ## Performance Considerations
-- **Lazy Loading**: Components loaded on-demand to reduce initial bundle size
-- **Efficient Re-renders**: Proper React key usage and memoization where needed
-- **API Optimization**: Minimal API calls with intelligent caching strategies
-- **Bundle Size**: Tree-shaking and code splitting for optimal loading performance
+- **Eager Loading**: All components are eagerly imported — no `React.lazy`/`Suspense` currently in use
+- **Efficient Re-renders**: Proper React key usage; no explicit `useMemo`/`useCallback` — kept simple intentionally
+- **API Optimization**: Minimal API calls with adaptive polling intervals; no client-side cache layer
+- **Bundle Size**: Vite tree-shaking handles dead code elimination; no manual code splitting configured

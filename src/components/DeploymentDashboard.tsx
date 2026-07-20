@@ -591,17 +591,6 @@ export function DeploymentDashboard({
     const buildNumber =
       inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
 
-    // Only validate build_number if the workflow defines it as an input
-    const allInputs = workflowInputs[pipelineId] || [];
-    const buildNumberInput = allInputs.find(
-      (input) => input.name === "build_number",
-    );
-
-    if (buildNumberInput && !buildNumber) {
-      setError(`Please enter a build number for ${pipeline.name}`);
-      return;
-    }
-
     setLoadingPipelines((prev) => ({ ...prev, [pipelineId]: true }));
     setError("");
     setSuccess("");
@@ -620,8 +609,8 @@ export function DeploymentDashboard({
         }
       }
 
-      // Ensure build_number is included
-      if (!workflowParams.build_number) {
+      // Include build_number only when provided
+      if (!workflowParams.build_number && buildNumber) {
         workflowParams.build_number = buildNumber;
       }
 
@@ -708,18 +697,6 @@ export function DeploymentDashboard({
       const buildNumber =
         inputValues[pipeline.id]?.build_number || buildNumbers[pipeline.id];
 
-      // Only validate build_number if the workflow defines it as an input
-      const allInputs = workflowInputs[pipeline.id] || [];
-      const buildNumberInput = allInputs.find(
-        (input) => input.name === "build_number",
-      );
-
-      if (buildNumberInput && !buildNumber) {
-        results.failed++;
-        results.errors.push(`${pipeline.name}: No build number specified`);
-        continue;
-      }
-
       const repository = project.repositories.find(
         (r) => r.id === pipeline.repositoryId,
       );
@@ -740,8 +717,8 @@ export function DeploymentDashboard({
           }
         }
 
-        // Ensure build_number is included
-        if (!workflowParams.build_number) {
+        // Include build_number only when provided
+        if (!workflowParams.build_number && buildNumber) {
           workflowParams.build_number = buildNumber;
         }
 
@@ -825,11 +802,7 @@ export function DeploymentDashboard({
     if (selectedPipelines.length === project.pipelines.length) {
       setSelectedPipelines([]);
     } else {
-      // Only select pipelines that have build numbers
-      const pipelinesWithBuildNumbers = project.pipelines.filter(
-        (p) => inputValues[p.id]?.build_number || buildNumbers[p.id],
-      );
-      setSelectedPipelines(pipelinesWithBuildNumbers.map((p) => p.id));
+      setSelectedPipelines(project.pipelines.map((p) => p.id));
     }
   };
 
@@ -1445,12 +1418,13 @@ export function DeploymentDashboard({
                                     {input.name
                                       .replace(/_/g, " ")
                                       .replace(/\b\w/g, (l) => l.toUpperCase())}
-                                    {input.required && (
-                                      <span style={{ color: "#ec4899" }}>
-                                        {" "}
-                                        *
-                                      </span>
-                                    )}
+                                    {input.required &&
+                                      input.name !== "build_number" && (
+                                        <span style={{ color: "#ec4899" }}>
+                                          {" "}
+                                          *
+                                        </span>
+                                      )}
                                   </Label>
                                   {input.type === "boolean" ? (
                                     <div
@@ -2269,12 +2243,6 @@ export function DeploymentDashboard({
                       buildNumbers[pipeline.id];
                     const isSelected = selectedPipelines.includes(pipeline.id);
 
-                    // Check if this pipeline requires build_number
-                    const allInputs = workflowInputs[pipeline.id] || [];
-                    const buildNumberInput = allInputs.find(
-                      (input) => input.name === "build_number",
-                    );
-
                     return (
                       <TableRow
                         key={pipeline.id}
@@ -2367,13 +2335,6 @@ export function DeploymentDashboard({
                             >
                               {buildNumber}
                             </code>
-                          ) : buildNumberInput ? (
-                            <span
-                              className="text-xs"
-                              style={{ color: "#ef4444" }}
-                            >
-                              Required
-                            </span>
                           ) : (
                             <span
                               className="text-xs"

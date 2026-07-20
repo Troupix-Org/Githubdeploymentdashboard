@@ -396,17 +396,6 @@ export function ProductionReleaseTabs({
     const buildNumber =
       inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
 
-    // Only validate build_number if the workflow defines it as an input
-    const allInputs = workflowInputs[pipelineId] || [];
-    const buildNumberInput = allInputs.find(
-      (input) => input.name === "build_number",
-    );
-
-    if (buildNumberInput && !buildNumber) {
-      setError(`Please enter a build number for ${pipeline.name}`);
-      return;
-    }
-
     setLoadingPipelines((prev) => ({ ...prev, [pipelineId]: true }));
     setError("");
     setSuccess("");
@@ -423,7 +412,7 @@ export function ProductionReleaseTabs({
         }
       }
 
-      if (!workflowParams.build_number) {
+      if (!workflowParams.build_number && buildNumber) {
         workflowParams.build_number = buildNumber;
       }
 
@@ -508,21 +497,6 @@ export function ProductionReleaseTabs({
 
       const buildNumber =
         inputValues[pipelineId]?.build_number || buildNumbers[pipelineId];
-
-      // Only validate build_number if the workflow defines it as an input
-      const allInputs = workflowInputs[pipelineId] || [];
-      const buildNumberInput = allInputs.find(
-        (input) => input.name === "build_number",
-      );
-
-      if (buildNumberInput && !buildNumber) {
-        failCount++;
-        setError(
-          (prev) => prev + `\nMissing build number for ${pipeline.name}`,
-        );
-        setDeployProgress({ current: i + 1, total: selectedPipelines.length });
-        continue;
-      }
 
       try {
         const workflowParams: Record<string, string> = {};
@@ -1583,12 +1557,15 @@ export function ProductionReleaseTabs({
                                             .replace(/\b\w/g, (l) =>
                                               l.toUpperCase(),
                                             )}
-                                          {input.required && (
-                                            <span style={{ color: "#ec4899" }}>
-                                              {" "}
-                                              *
-                                            </span>
-                                          )}
+                                          {input.required &&
+                                            input.name !== "build_number" && (
+                                              <span
+                                                style={{ color: "#ec4899" }}
+                                              >
+                                                {" "}
+                                                *
+                                              </span>
+                                            )}
                                           {release.preparedInputs?.[
                                             pipeline.id
                                           ]?.[input.name] !== undefined && (
@@ -2023,12 +2000,6 @@ export function ProductionReleaseTabs({
                       buildNumbers[pipeline.id];
                     const isSelected = selectedPipelines.includes(pipeline.id);
 
-                    // Check if this pipeline requires build_number
-                    const allInputs = workflowInputs[pipeline.id] || [];
-                    const buildNumberInput = allInputs.find(
-                      (input) => input.name === "build_number",
-                    );
-
                     return (
                       <TableRow
                         key={pipeline.id}
@@ -2132,13 +2103,6 @@ export function ProductionReleaseTabs({
                             >
                               {buildNumber}
                             </code>
-                          ) : buildNumberInput ? (
-                            <span
-                              className="text-xs"
-                              style={{ color: "#ef4444" }}
-                            >
-                              Required
-                            </span>
                           ) : (
                             <span
                               className="text-xs"
@@ -2509,9 +2473,10 @@ export function ProductionReleaseTabs({
                               {input.name
                                 .replace(/_/g, " ")
                                 .replace(/\b\w/g, (l) => l.toUpperCase())}
-                              {input.required && (
-                                <span style={{ color: "#fca5a5" }}> *</span>
-                              )}
+                              {input.required &&
+                                input.name !== "build_number" && (
+                                  <span style={{ color: "#fca5a5" }}> *</span>
+                                )}
                               {isFavorite && (
                                 <Star
                                   className="w-3 h-3"

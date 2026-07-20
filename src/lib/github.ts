@@ -71,7 +71,7 @@ async function githubFetch(endpoint: string, options: RequestInit = {}) {
 
 export async function listWorkflows(
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<GitHubWorkflow[]> {
   const data = await githubFetch(`/repos/${owner}/${repo}/actions/workflows`);
   return data.workflows || [];
@@ -82,7 +82,7 @@ export async function triggerWorkflow(
   repo: string,
   workflowFile: string,
   branch: string,
-  inputs?: Record<string, string>
+  inputs?: Record<string, string>,
 ): Promise<void> {
   await githubFetch(
     `/repos/${owner}/${repo}/actions/workflows/${workflowFile}/dispatches`,
@@ -92,7 +92,7 @@ export async function triggerWorkflow(
         ref: branch,
         inputs: inputs || {},
       }),
-    }
+    },
   );
 }
 
@@ -101,7 +101,7 @@ export async function getWorkflowRuns(
   repo: string,
   workflowFile: string,
   limit: number = 10,
-  branch?: string
+  branch?: string,
 ): Promise<GitHubWorkflowRun[]> {
   let url = `/repos/${owner}/${repo}/actions/workflows/${workflowFile}/runs?per_page=${limit}`;
   if (branch) {
@@ -114,7 +114,7 @@ export async function getWorkflowRuns(
 export async function getWorkflowRun(
   owner: string,
   repo: string,
-  runId: number
+  runId: number,
 ): Promise<GitHubWorkflowRun> {
   return await githubFetch(`/repos/${owner}/${repo}/actions/runs/${runId}`);
 }
@@ -123,15 +123,20 @@ export async function findTriggeredWorkflowRun(
   owner: string,
   repo: string,
   workflowFile: string,
-  buildNumber: string,
+  buildNumber: string | undefined,
   branch: string,
   environment?: string,
   maxRetries: number = 3,
-  delayMs: number = 3000
+  delayMs: number = 3000,
 ): Promise<number | null> {
+  const normalizedBuildNumber = buildNumber?.trim();
   const searchKey = environment
-    ? `Finding workflow run for build ${buildNumber} in environment ${environment} on branch ${branch}`
-    : `Finding workflow run for build ${buildNumber} on branch ${branch}`;
+    ? normalizedBuildNumber
+      ? `Finding workflow run for build ${normalizedBuildNumber} in environment ${environment} on branch ${branch}`
+      : `Finding workflow run in environment ${environment} on branch ${branch}`
+    : normalizedBuildNumber
+      ? `Finding workflow run for build ${normalizedBuildNumber} on branch ${branch}`
+      : `Finding latest workflow run on branch ${branch}`;
   console.log(searchKey);
 
   // Initial delay to let GitHub register the workflow run
@@ -150,13 +155,13 @@ export async function findTriggeredWorkflowRun(
 
       if (runs.length === 0) {
         console.log(
-          `Attempt ${attempt + 1}: No runs found on branch ${branch}`
+          `Attempt ${attempt + 1}: No runs found on branch ${branch}`,
         );
         continue;
       }
 
       console.log(
-        `Attempt ${attempt + 1}: Found ${runs.length} runs on branch ${branch}`
+        `Attempt ${attempt + 1}: Found ${runs.length} runs on branch ${branch}`,
       );
 
       // Filter runs created recently (within the last 60 seconds since the trigger)
@@ -169,13 +174,13 @@ export async function findTriggeredWorkflowRun(
 
       if (recentRuns.length === 0) {
         console.log(
-          `Attempt ${attempt + 1}: No recent runs found (< 60 seconds old)`
+          `Attempt ${attempt + 1}: No recent runs found (< 60 seconds old)`,
         );
         continue;
       }
 
       console.log(
-        `Attempt ${attempt + 1}: Found ${recentRuns.length} recent runs`
+        `Attempt ${attempt + 1}: Found ${recentRuns.length} recent runs`,
       );
 
       // If environment is specified, filter by environment in run name
@@ -185,9 +190,12 @@ export async function findTriggeredWorkflowRun(
           if (!run.name) return false;
           const nameLower = run.name.toLowerCase();
           const envLower = environment.toLowerCase();
+          if (!normalizedBuildNumber) {
+            return nameLower.includes(envLower);
+          }
           // Check if both build number and environment are in the run name
           return (
-            nameLower.includes(buildNumber.toLowerCase()) &&
+            nameLower.includes(normalizedBuildNumber.toLowerCase()) &&
             nameLower.includes(envLower)
           );
         });
@@ -195,34 +203,38 @@ export async function findTriggeredWorkflowRun(
         if (envFilteredRuns.length > 0) {
           candidateRuns = envFilteredRuns;
           console.log(
-            `Found ${envFilteredRuns.length} run(s) matching build number + environment`
+            `Found ${envFilteredRuns.length} run(s) matching build number + environment`,
           );
         } else {
           // If no exact match, try just environment
           const envOnlyRuns = recentRuns.filter(
             (run) =>
               run.name &&
-              run.name.toLowerCase().includes(environment.toLowerCase())
+              run.name.toLowerCase().includes(environment.toLowerCase()),
           );
           if (envOnlyRuns.length > 0) {
             candidateRuns = envOnlyRuns;
             console.log(
-              `Found ${envOnlyRuns.length} run(s) matching environment only`
+              `Found ${envOnlyRuns.length} run(s) matching environment only`,
             );
           }
         }
       } else {
         // If no environment, try to match by build number
-        const buildNumberRuns = recentRuns.filter(
-          (run) =>
-            run.name &&
-            run.name.toLowerCase().includes(buildNumber.toLowerCase())
-        );
-        if (buildNumberRuns.length > 0) {
-          candidateRuns = buildNumberRuns;
-          console.log(
-            `Found ${buildNumberRuns.length} run(s) matching build number`
+        if (normalizedBuildNumber) {
+          const buildNumberRuns = recentRuns.filter(
+            (run) =>
+              run.name &&
+              run.name
+                .toLowerCase()
+                .includes(normalizedBuildNumber.toLowerCase()),
           );
+          if (buildNumberRuns.length > 0) {
+            candidateRuns = buildNumberRuns;
+            console.log(
+              `Found ${buildNumberRuns.length} run(s) matching build number`,
+            );
+          }
         }
       }
 
@@ -230,31 +242,35 @@ export async function findTriggeredWorkflowRun(
       if (candidateRuns.length > 0) {
         const sortedByDate = candidateRuns.sort(
           (a, b) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         );
         const selectedRun = sortedByDate[0];
         console.log(
-          `✓ Selected most recent run: #${selectedRun.id} (${selectedRun.status}) - "${selectedRun.name}" - Created: ${selectedRun.created_at}`
+          `✓ Selected most recent run: #${selectedRun.id} (${selectedRun.status}) - "${selectedRun.name}" - Created: ${selectedRun.created_at}`,
         );
         return selectedRun.id;
       }
 
       console.log(
-        `Attempt ${attempt + 1}: No matching runs found, will retry...`
+        `Attempt ${attempt + 1}: No matching runs found, will retry...`,
       );
     } catch (err) {
       console.error(
         `Attempt ${
           attempt + 1
         } to find workflow run on branch ${branch} failed:`,
-        err
+        err,
       );
     }
   }
 
   const warnMsg = environment
-    ? `Failed to find workflow run for build ${buildNumber} in environment ${environment} on branch ${branch} after ${maxRetries} attempts`
-    : `Failed to find workflow run for build ${buildNumber} on branch ${branch} after ${maxRetries} attempts`;
+    ? normalizedBuildNumber
+      ? `Failed to find workflow run for build ${normalizedBuildNumber} in environment ${environment} on branch ${branch} after ${maxRetries} attempts`
+      : `Failed to find workflow run in environment ${environment} on branch ${branch} after ${maxRetries} attempts`
+    : normalizedBuildNumber
+      ? `Failed to find workflow run for build ${normalizedBuildNumber} on branch ${branch} after ${maxRetries} attempts`
+      : `Failed to find workflow run on branch ${branch} after ${maxRetries} attempts`;
   console.warn(warnMsg);
   return null;
 }
@@ -265,7 +281,7 @@ export async function createRelease(
   tagName: string,
   name: string,
   body: string,
-  targetCommitish?: string
+  targetCommitish?: string,
 ): Promise<any> {
   return await githubFetch(`/repos/${owner}/${repo}/releases`, {
     method: "POST",
@@ -283,10 +299,10 @@ export async function createRelease(
 export async function listReleases(
   owner: string,
   repo: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<any[]> {
   return await githubFetch(
-    `/repos/${owner}/${repo}/releases?per_page=${limit}`
+    `/repos/${owner}/${repo}/releases?per_page=${limit}`,
   );
 }
 
@@ -308,7 +324,7 @@ export async function verifyToken(): Promise<{
 export async function getCommit(
   owner: string,
   repo: string,
-  sha: string
+  sha: string,
 ): Promise<any> {
   return await githubFetch(`/repos/${owner}/${repo}/commits/${sha}`);
 }
@@ -317,7 +333,7 @@ export async function getLatestBuildForBranch(
   owner: string,
   repo: string,
   workflowFile: string,
-  branch: string
+  branch: string,
 ): Promise<{
   buildNumber?: string;
   commit?: {
@@ -379,7 +395,7 @@ export async function getLatestBuildsForBranch(
   repo: string,
   workflowFile: string,
   branch: string,
-  limit: number = 5
+  limit: number = 5,
 ): Promise<
   Array<{
     buildNumber?: string;
@@ -402,7 +418,7 @@ export async function getLatestBuildsForBranch(
       repo,
       workflowFile,
       limit,
-      branch
+      branch,
     );
     if (runs.length === 0) {
       return [];
@@ -444,7 +460,7 @@ export async function getLatestBuildsForBranch(
 export async function getWorkflowFileContent(
   owner: string,
   repo: string,
-  workflowFile: string
+  workflowFile: string,
 ): Promise<string> {
   const token = getGitHubToken();
   if (!token) {
@@ -462,7 +478,7 @@ export async function getWorkflowFileContent(
         Authorization: `Token ${token}`,
         Accept: "application/vnd.github.v3.raw",
       },
-    }
+    },
   );
 
   if (!response.ok) {
@@ -470,7 +486,7 @@ export async function getWorkflowFileContent(
       .json()
       .catch(() => ({ message: response.statusText }));
     throw new Error(
-      error.message || `Failed to fetch workflow file: ${response.status}`
+      error.message || `Failed to fetch workflow file: ${response.status}`,
     );
   }
 
@@ -480,7 +496,7 @@ export async function getWorkflowFileContent(
 export async function getWorkflowInputs(
   owner: string,
   repo: string,
-  workflowFile: string
+  workflowFile: string,
 ): Promise<WorkflowInput[]> {
   try {
     const content = await getWorkflowFileContent(owner, repo, workflowFile);
@@ -494,7 +510,7 @@ export async function getWorkflowInputs(
     const inputsObj = parsed.on.workflow_dispatch.inputs;
 
     for (const [name, config] of Object.entries(
-      inputsObj as Record<string, any>
+      inputsObj as Record<string, any>,
     )) {
       inputs.push({
         name,
@@ -529,7 +545,7 @@ export interface GitHubTag {
 export async function listTags(
   owner: string,
   repo: string,
-  limit: number = 100
+  limit: number = 100,
 ): Promise<GitHubTag[]> {
   return await githubFetch(`/repos/${owner}/${repo}/tags?per_page=${limit}`);
 }
@@ -544,7 +560,7 @@ export interface GitHubEnvironment {
 
 export async function listEnvironments(
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<GitHubEnvironment[]> {
   try {
     const data = await githubFetch(`/repos/${owner}/${repo}/environments`);
@@ -569,7 +585,7 @@ export interface GitHubEnvironmentVariable extends GitHubVariable {
 // List repository actions variables
 export async function listRepositoryVariables(
   owner: string,
-  repo: string
+  repo: string,
 ): Promise<GitHubVariable[]> {
   try {
     const data = await githubFetch(`/repos/${owner}/${repo}/actions/variables`);
@@ -584,11 +600,11 @@ export async function listRepositoryVariables(
 export async function listEnvironmentVariables(
   owner: string,
   repo: string,
-  environmentName: string
+  environmentName: string,
 ): Promise<GitHubEnvironmentVariable[]> {
   try {
     const data = await githubFetch(
-      `/repos/${owner}/${repo}/environments/${environmentName}/variables`
+      `/repos/${owner}/${repo}/environments/${environmentName}/variables`,
     );
     return data.variables || [];
   } catch (err) {
@@ -602,7 +618,7 @@ export async function updateRepositoryVariable(
   owner: string,
   repo: string,
   variableName: string,
-  value: string
+  value: string,
 ): Promise<void> {
   try {
     await githubFetch(
@@ -610,7 +626,7 @@ export async function updateRepositoryVariable(
       {
         method: "PATCH",
         body: JSON.stringify({ value }),
-      }
+      },
     );
   } catch (err) {
     console.error("Failed to update repository variable:", err);
@@ -624,7 +640,7 @@ export async function updateEnvironmentVariable(
   repo: string,
   environmentName: string,
   variableName: string,
-  value: string
+  value: string,
 ): Promise<void> {
   try {
     await githubFetch(
@@ -632,7 +648,7 @@ export async function updateEnvironmentVariable(
       {
         method: "PATCH",
         body: JSON.stringify({ value }),
-      }
+      },
     );
   } catch (err) {
     console.error("Failed to update environment variable:", err);
