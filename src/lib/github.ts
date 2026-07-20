@@ -4,6 +4,42 @@ import yaml from "js-yaml";
 
 const GITHUB_API_BASE = "https://api.github.com";
 
+// ---------------------------------------------------------------------------
+// Rate limit state — framework-free observable store
+// ---------------------------------------------------------------------------
+interface RateLimitState {
+  remaining: number | null;
+  resetAt: number | null; // Unix timestamp (seconds)
+}
+
+let rateLimitState: RateLimitState = { remaining: null, resetAt: null };
+const rateLimitListeners: Array<(state: RateLimitState) => void> = [];
+
+export function getRateLimitState(): RateLimitState {
+  return { ...rateLimitState };
+}
+
+export function onRateLimitUpdate(
+  cb: (state: RateLimitState) => void,
+): () => void {
+  rateLimitListeners.push(cb);
+  return () => {
+    const idx = rateLimitListeners.indexOf(cb);
+    if (idx !== -1) rateLimitListeners.splice(idx, 1);
+  };
+}
+
+function captureRateLimitHeaders(response: Response): void {
+  const remaining = response.headers.get("X-RateLimit-Remaining");
+  const reset = response.headers.get("X-RateLimit-Reset");
+  if (remaining === null) return; // leave cached value unchanged (task 1.4)
+  rateLimitState = {
+    remaining: parseInt(remaining, 10),
+    resetAt: reset !== null ? parseInt(reset, 10) : null,
+  };
+  rateLimitListeners.forEach((cb) => cb({ ...rateLimitState }));
+}
+
 interface GitHubWorkflow {
   id: number;
   name: string;
@@ -53,6 +89,9 @@ async function githubFetch(endpoint: string, options: RequestInit = {}) {
       ...options.headers,
     },
   });
+
+  // Capture rate limit headers on every response (including errors)
+  captureRateLimitHeaders(response);
 
   if (!response.ok) {
     const error = await response

@@ -66,6 +66,7 @@ import {
   findTriggeredWorkflowRun,
   getWorkflowRun,
   listEnvironments,
+  getRateLimitState,
 } from "../lib/github";
 import {
   requestNotificationPermission,
@@ -668,6 +669,17 @@ export function DeploymentDashboard({
   };
 
   const handleDeploy = async (pipelineId: string) => {
+    // Low rate-limit warning
+    const { remaining, resetAt } = getRateLimitState();
+    if (remaining !== null && remaining < 500) {
+      const resetStr = resetAt
+        ? ` Resets at ${new Date(resetAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+        : "";
+      setError(
+        `Only ${remaining} GitHub API requests remaining.${resetStr} Batch deployments may fail.`,
+      );
+    }
+
     const pipeline = project.pipelines.find((p) => p.id === pipelineId);
     if (!pipeline) {
       setError("Pipeline not found");
@@ -765,6 +777,17 @@ export function DeploymentDashboard({
     if (selectedPipelines.length === 0) {
       setError("Please select at least one pipeline");
       return;
+    }
+
+    // Low rate-limit warning
+    const { remaining: rl, resetAt: ra } = getRateLimitState();
+    if (rl !== null && rl < 500) {
+      const resetStr = ra
+        ? ` Resets at ${new Date(ra * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`
+        : "";
+      setError(
+        `Only ${rl} GitHub API requests remaining.${resetStr} Batch deployments may fail.`,
+      );
     }
 
     setIsDeploying(true);
