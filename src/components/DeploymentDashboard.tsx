@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -43,6 +43,10 @@ import {
   Loader2,
   Info,
   Trash2,
+  RotateCcw,
+  Bell,
+  BellOff,
+  Timer,
 } from "lucide-react";
 import {
   Project,
@@ -63,6 +67,10 @@ import {
   getWorkflowRun,
   listEnvironments,
 } from "../lib/github";
+import {
+  requestNotificationPermission,
+  sendDeploymentNotification,
+} from "../lib/notifications";
 import { ProductionReleaseProcess } from "./ProductionReleaseProcess";
 import { ProductionReleaseTabs } from "./ProductionReleaseTabs";
 import {
@@ -179,10 +187,60 @@ export function DeploymentDashboard({
     string | null
   >(null);
 
+  // Notification permission state
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission>(
+      typeof Notification !== "undefined" ? Notification.permission : "denied",
+    );
+
+  // Live elapsed counters for in-progress deployments (deploymentId -> elapsed ms)
+  const [elapsedTimes, setElapsedTimes] = useState<Record<string, number>>({});
+  const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+
   // Sync with prop changes
   useEffect(() => {
     setProject(initialProject);
   }, [initialProject]);
+
+  // Request notification permission once on mount
+  useEffect(() => {
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "default"
+    ) {
+      requestNotificationPermission().then(setNotificationPermission);
+    }
+  }, []);
+
+  // Live elapsed counter for active deployments
+  useEffect(() => {
+    const activeDeployments = deployments.filter(
+      (d) => d.status === "pending" || d.status === "in_progress",
+    );
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+    if (activeDeployments.length === 0) {
+      setElapsedTimes({});
+      return;
+    }
+    const tick = () => {
+      const now = Date.now();
+      setElapsedTimes(
+        Object.fromEntries(
+          activeDeployments.map((d) => [d.id, now - d.startedAt]),
+        ),
+      );
+    };
+    tick();
+    elapsedIntervalRef.current = setInterval(tick, 1000);
+    return () => {
+      if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
+    };
+  }, [deployments]);
 
   const loadDeployments = () => {
     const data = getDeploymentsByProject(project.id);
@@ -299,6 +357,13 @@ export function DeploymentDashboard({
 
         // Show subtle notification for completed deployments (only for auto-refresh)
         if (silent && completedDeployments.length > 0) {
+          // Browser push notifications
+          completedDeployments.forEach(({ pipeline: pipelineName, status }) => {
+            if (status === "success" || status === "failure") {
+              sendDeploymentNotification(pipelineName, status);
+            }
+          });
+
           const successCount = completedDeployments.filter(
             (d) => d.status === "success",
           ).length;
@@ -570,6 +635,36 @@ export function DeploymentDashboard({
     } catch (err) {
       setError("Failed to save default value");
     }
+  };
+
+  const handleRedeploy = (deployment: Deployment) => {
+    const pipeline = project.pipelines.find(
+      (p) => p.id === deployment.pipelineId,
+    );
+    if (!pipeline) return;
+
+    setInputValues((prev) => ({
+      ...prev,
+      [pipeline.id]: {
+        ...prev[pipeline.id],
+        build_number: deployment.buildNumber,
+      },
+    }));
+    setBuildNumbers((prev) => ({
+      ...prev,
+      [pipeline.id]: deployment.buildNumber,
+    }));
+    setDeployOpen(true);
+    setTimeout(() => {
+      document.getElementById("deploy-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+    setSuccess(
+      `Form pre-filled with build ${deployment.buildNumber} — review and deploy`,
+    );
+    setTimeout(() => setSuccess(""), 4000);
   };
 
   const handleDeploy = async (pipelineId: string) => {
@@ -859,6 +954,13 @@ export function DeploymentDashboard({
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleString();
+  };
+
+  const formatDuration = (ms: number): string => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
   };
 
   const formatRelativeDate = (dateString: string) => {
@@ -1796,19 +1898,56 @@ export function DeploymentDashboard({
                     </div>
                   </Button>
                 </CollapsibleTrigger>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={refreshDeploymentStatus}
-                  disabled={refreshing}
-                  className="border-2 hover:bg-purple-50"
-                  style={{ borderColor: "#c4b5fd", color: "#7c3aed" }}
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                  {typeof Notification !== "undefined" && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        requestNotificationPermission().then(
+                          setNotificationPermission,
+                        )
+                      }
+                      className="h-7 w-7 flex items-center justify-center rounded hover:bg-purple-50"
+                      title={
+                        notificationPermission === "granted"
+                          ? "Notifications enabled"
+                          : notificationPermission === "denied"
+                            ? "Notifications blocked — enable in browser settings"
+                            : "Click to enable deployment notifications"
+                      }
+                    >
+                      {notificationPermission === "granted" ? (
+                        <Bell
+                          className="w-4 h-4"
+                          style={{ color: "#7c3aed" }}
+                        />
+                      ) : notificationPermission === "denied" ? (
+                        <BellOff
+                          className="w-4 h-4"
+                          style={{ color: "#9ca3af" }}
+                        />
+                      ) : (
+                        <Bell
+                          className="w-4 h-4"
+                          style={{ color: "#d1d5db" }}
+                        />
+                      )}
+                    </button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={refreshDeploymentStatus}
+                    disabled={refreshing}
+                    className="border-2 hover:bg-purple-50"
+                    style={{ borderColor: "#c4b5fd", color: "#7c3aed" }}
+                  >
+                    <RefreshCw
+                      className={`w-4 h-4 mr-2 ${refreshing ? "animate-spin" : ""}`}
+                    />
+                    Refresh
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CollapsibleContent>
@@ -1962,6 +2101,12 @@ export function DeploymentDashboard({
                                   Repository
                                 </TableHead>
                                 <TableHead
+                                  className="font-semibold text-xs"
+                                  style={{ color: "#6b21a8" }}
+                                >
+                                  Duration
+                                </TableHead>
+                                <TableHead
                                   className="font-semibold text-xs text-right"
                                   style={{ color: "#6b21a8" }}
                                 >
@@ -2050,6 +2195,27 @@ export function DeploymentDashboard({
                                         {repo?.name || "Unknown"}
                                       </span>
                                     </TableCell>
+                                    <TableCell>
+                                      <span
+                                        className="text-xs font-mono"
+                                        style={{ color: "#9ca3af" }}
+                                      >
+                                        {deployment.status === "success" ||
+                                        deployment.status === "failure"
+                                          ? deployment.completedAt
+                                            ? formatDuration(
+                                                deployment.completedAt -
+                                                  deployment.startedAt,
+                                              )
+                                            : "—"
+                                          : elapsedTimes[deployment.id] !==
+                                              undefined
+                                            ? formatDuration(
+                                                elapsedTimes[deployment.id],
+                                              )
+                                            : "—"}
+                                      </span>
+                                    </TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex items-center justify-end gap-1">
                                         {deployment.workflowRunId && repo && (
@@ -2066,6 +2232,23 @@ export function DeploymentDashboard({
                                             title="View on GitHub"
                                           >
                                             <ExternalLink
+                                              className="w-3.5 h-3.5"
+                                              style={{ color: "#7c3aed" }}
+                                            />
+                                          </Button>
+                                        )}
+                                        {(deployment.status === "success" ||
+                                          deployment.status === "failure") && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() =>
+                                              handleRedeploy(deployment)
+                                            }
+                                            className="hover:bg-purple-100 h-7 w-7 p-0"
+                                            title="Redeploy with same build number"
+                                          >
+                                            <RotateCcw
                                               className="w-3.5 h-3.5"
                                               style={{ color: "#7c3aed" }}
                                             />
