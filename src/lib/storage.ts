@@ -254,6 +254,22 @@ export function getDeploymentsByProject(projectId: string): Deployment[] {
   return getDeployments().filter((d) => d.projectId === projectId);
 }
 
+export function getLastDeploymentByProject(
+  projectId: string,
+): Deployment | null {
+  const all = getDeploymentsByProject(projectId);
+  if (all.length === 0) return null;
+  return all.reduce((latest, d) =>
+    d.startedAt > latest.startedAt ? d : latest,
+  );
+}
+
+export function getActiveDeploymentCountByProject(projectId: string): number {
+  return getDeploymentsByProject(projectId).filter(
+    (d) => d.status === "pending" || d.status === "in_progress",
+  ).length;
+}
+
 export function deleteDeployment(deploymentId: string): void {
   const deployments = getDeployments();
   const filtered = deployments.filter((d) => d.id !== deploymentId);
