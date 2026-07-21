@@ -78,11 +78,7 @@ interface ProductionReleaseProcessProps {
   onReleaseUpdated?: () => void;
 }
 
-type StepStatus =
-  | "pending"
-  | "in_progress"
-  | "completed"
-  | "skipped";
+type StepStatus = "pending" | "in_progress" | "completed" | "skipped";
 
 interface ProductionStep {
   id: number;
@@ -133,15 +129,11 @@ export function ProductionReleaseProcess({
 
   // Production Release Management - use prop if provided, otherwise manage internally
   const [currentRelease, setCurrentRelease] =
-    useState<ProductionRelease | null>(
-      propCurrentRelease || null,
-    );
+    useState<ProductionRelease | null>(propCurrentRelease || null);
 
   // Step 2: Email for staging ready
-  const [stagingEmailDialog, setStagingEmailDialog] =
-    useState(false);
-  const [stagingEmailRecipients, setStagingEmailRecipients] =
-    useState("");
+  const [stagingEmailDialog, setStagingEmailDialog] = useState(false);
+  const [stagingEmailRecipients, setStagingEmailRecipients] = useState("");
   const [stagingEmailTemplate, setStagingEmailTemplate] =
     useState<EmailTemplate | null>(null);
 
@@ -157,10 +149,10 @@ export function ProductionReleaseProcess({
 
   // Step 4: Email for production release
   const [prodEmailDialog, setProdEmailDialog] = useState(false);
-  const [prodEmailRecipients, setProdEmailRecipients] =
-    useState("");
-  const [complianceFile, setComplianceFile] =
-    useState<ComplianceFile | null>(null);
+  const [prodEmailRecipients, setProdEmailRecipients] = useState("");
+  const [complianceFile, setComplianceFile] = useState<ComplianceFile | null>(
+    null,
+  );
 
   // Step 5: PO Sign-off
   const [poSignOffDialog, setPoSignOffDialog] = useState(false);
@@ -171,15 +163,23 @@ export function ProductionReleaseProcess({
   });
 
   // Step 7: Email for production complete
-  const [prodCompleteEmailDialog, setProdCompleteEmailDialog] =
-    useState(false);
+  const [prodCompleteEmailDialog, setProdCompleteEmailDialog] = useState(false);
 
-  // Step 8: GitHub release
+  // Step 8: Production QA Sign-off
+  const [prodQASignOffDialog, setProdQASignOffDialog] = useState(false);
+  const [prodQASignOff, setProdQASignOff] = useState<QASignOff>({
+    testerName: "",
+    testDate: new Date().toISOString().split("T")[0],
+    testEnvironment: "production",
+    testsPassed: false,
+    comments: "",
+  });
+
+  // Step 9: GitHub release
   const [releaseDialog, setReleaseDialog] = useState(false);
-  const [selectedRepository, setSelectedRepository] =
-    useState<string>("");
+  const [selectedRepository, setSelectedRepository] = useState<string>("");
 
-  // Step 9: Update BUILD_VERSION
+  // Step 10: Update BUILD_VERSION
   const [buildVersionDialog, setBuildVersionDialog] = useState(false);
 
   // Persistent storage keys
@@ -206,15 +206,10 @@ export function ProductionReleaseProcess({
       // Load data from the release object
       if (release.qaSignOff) setQaSignOff(release.qaSignOff);
       if (release.poSignOff) setPoSignOff(release.poSignOff);
-      if (release.complianceFile)
-        setComplianceFile(release.complianceFile);
+      if (release.complianceFile) setComplianceFile(release.complianceFile);
       if (release.emailRecipients) {
-        setStagingEmailRecipients(
-          release.emailRecipients.staging || "",
-        );
-        setProdEmailRecipients(
-          release.emailRecipients.production || "",
-        );
+        setStagingEmailRecipients(release.emailRecipients.staging || "");
+        setProdEmailRecipients(release.emailRecipients.production || "");
       }
     } catch (err) {
       console.error("Failed to load release data:", err);
@@ -226,21 +221,16 @@ export function ProductionReleaseProcess({
     if (currentRelease) return; // Skip if we have a current release
 
     try {
-      const storedQA = localStorage.getItem(
-        `${STORAGE_PREFIX}qa_signoff`,
-      );
+      const storedQA = localStorage.getItem(`${STORAGE_PREFIX}qa_signoff`);
       if (storedQA) setQaSignOff(JSON.parse(storedQA));
 
-      const storedPO = localStorage.getItem(
-        `${STORAGE_PREFIX}po_signoff`,
-      );
+      const storedPO = localStorage.getItem(`${STORAGE_PREFIX}po_signoff`);
       if (storedPO) setPoSignOff(JSON.parse(storedPO));
 
       const storedCompliance = localStorage.getItem(
         `${STORAGE_PREFIX}compliance_file`,
       );
-      if (storedCompliance)
-        setComplianceFile(JSON.parse(storedCompliance));
+      if (storedCompliance) setComplianceFile(JSON.parse(storedCompliance));
 
       const storedRecipients = localStorage.getItem(
         `${STORAGE_PREFIX}email_recipients`,
@@ -251,19 +241,13 @@ export function ProductionReleaseProcess({
         setProdEmailRecipients(recipients.production || "");
       }
     } catch (err) {
-      console.error(
-        "Failed to load stored production release data:",
-        err,
-      );
+      console.error("Failed to load stored production release data:", err);
     }
   };
 
   const saveToStorage = (key: string, data: any) => {
     try {
-      localStorage.setItem(
-        `${STORAGE_PREFIX}${key}`,
-        JSON.stringify(data),
-      );
+      localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data));
     } catch (err) {
       console.error("Failed to save to storage:", err);
     }
@@ -294,35 +278,22 @@ export function ProductionReleaseProcess({
       return;
     }
 
-    const newRelease = createProductionRelease(
-      project.id,
-      releaseNumber,
-    );
+    const newRelease = createProductionRelease(project.id, releaseNumber);
     setCurrentRelease(newRelease);
     setAvailableReleases([newRelease, ...availableReleases]);
-    localStorage.setItem(
-      `${STORAGE_PREFIX}current_release_id`,
-      newRelease.id,
-    );
+    localStorage.setItem(`${STORAGE_PREFIX}current_release_id`, newRelease.id);
     setShowReleaseDialog(false);
   };
 
   const handleSelectRelease = (releaseId: string) => {
-    const release = availableReleases.find(
-      (r) => r.id === releaseId,
-    );
+    const release = availableReleases.find((r) => r.id === releaseId);
     if (release) {
       setCurrentRelease(release);
-      localStorage.setItem(
-        `${STORAGE_PREFIX}current_release_id`,
-        release.id,
-      );
+      localStorage.setItem(`${STORAGE_PREFIX}current_release_id`, release.id);
     }
   };
 
-  const updateCurrentRelease = (
-    updates: Partial<ProductionRelease>,
-  ) => {
+  const updateCurrentRelease = (updates: Partial<ProductionRelease>) => {
     if (!currentRelease) return;
 
     const updatedRelease = { ...currentRelease, ...updates };
@@ -347,10 +318,7 @@ export function ProductionReleaseProcess({
         return {
           ...step,
           status,
-          completedAt:
-            status === "completed"
-              ? Date.now()
-              : step.completedAt,
+          completedAt: status === "completed" ? Date.now() : step.completedAt,
           metadata: metadata
             ? { ...step.metadata, ...metadata }
             : step.metadata,
@@ -367,18 +335,14 @@ export function ProductionReleaseProcess({
     updateCurrentRelease({
       steps: updatedSteps,
       status: allStepsCompleted ? "completed" : "in_progress",
-      completedAt: allStepsCompleted
-        ? Date.now()
-        : currentRelease.completedAt,
+      completedAt: allStepsCompleted ? Date.now() : currentRelease.completedAt,
     });
   };
 
   const updateSteps = () => {
     // Filter deployments by current release if available
     const releaseDeployments = currentRelease
-      ? deployments.filter(
-          (d) => d.productionReleaseId === currentRelease.id,
-        )
+      ? deployments.filter((d) => d.productionReleaseId === currentRelease.id)
       : deployments;
 
     // Check if staging deployments exist
@@ -395,21 +359,17 @@ export function ProductionReleaseProcess({
     // Check QA sign-off - prioritize release data, fallback to localStorage
     const hasQASignOff =
       currentRelease?.qaSignOff !== undefined ||
-      localStorage.getItem(`${STORAGE_PREFIX}qa_signoff`) !==
-        null;
+      localStorage.getItem(`${STORAGE_PREFIX}qa_signoff`) !== null;
 
     // Check compliance file
     const hasComplianceFile =
       currentRelease?.complianceFile !== undefined ||
-      localStorage.getItem(
-        `${STORAGE_PREFIX}compliance_file`,
-      ) !== null;
+      localStorage.getItem(`${STORAGE_PREFIX}compliance_file`) !== null;
 
     // Check PO sign-off
     const hasPOSignOff =
       currentRelease?.poSignOff !== undefined ||
-      localStorage.getItem(`${STORAGE_PREFIX}po_signoff`) !==
-        null;
+      localStorage.getItem(`${STORAGE_PREFIX}po_signoff`) !== null;
 
     // Check production deployments
     const prodDeployments = releaseDeployments.filter((d) =>
@@ -421,55 +381,33 @@ export function ProductionReleaseProcess({
     );
 
     // Check step statuses from release object or localStorage
-    const getStepStatus = (
-      stepId: number,
-      fallbackKey: string,
-    ): boolean => {
+    const getStepStatus = (stepId: number, fallbackKey: string): boolean => {
       if (currentRelease) {
-        const step = currentRelease.steps.find(
-          (s) => s.stepId === stepId,
-        );
+        const step = currentRelease.steps.find((s) => s.stepId === stepId);
         return step?.status === "completed";
       }
-      return (
-        localStorage.getItem(
-          `${STORAGE_PREFIX}${fallbackKey}`,
-        ) === "true"
-      );
+      return localStorage.getItem(`${STORAGE_PREFIX}${fallbackKey}`) === "true";
     };
 
-    const stagingEmailSent = getStepStatus(
-      2,
-      "staging_email_sent",
-    );
+    const stagingEmailSent = getStepStatus(2, "staging_email_sent");
     const prodEmailSent = getStepStatus(4, "prod_email_sent");
-    const prodCompleteEmailSent = getStepStatus(
-      7,
-      "prod_complete_email_sent",
-    );
-    const step1ManuallyCompleted = getStepStatus(
-      1,
-      "step_1_completed",
-    );
-    const step6ManuallyCompleted = getStepStatus(
-      6,
-      "step_6_completed",
-    );
-    const step8ManuallyCompleted = getStepStatus(
-      8,
-      "step_8_completed",
-    );
-    const step9ManuallyCompleted = getStepStatus(
-      9,
-      "step_9_completed",
-    );
+    const prodCompleteEmailSent = getStepStatus(7, "prod_complete_email_sent");
+    const step1ManuallyCompleted = getStepStatus(1, "step_1_completed");
+    const step6ManuallyCompleted = getStepStatus(6, "step_6_completed");
+    const step8ManuallyCompleted = getStepStatus(8, "step_8_completed");
+    const step9ManuallyCompleted = getStepStatus(9, "step_9_completed");
+    const step10ManuallyCompleted = getStepStatus(10, "step_10_completed");
+
+    // Check production QA sign-off
+    const hasProdQASignOff =
+      currentRelease?.qaSignOff !== undefined ||
+      localStorage.getItem(`${STORAGE_PREFIX}prod_qa_signoff`) !== null;
 
     const newSteps: ProductionStep[] = [
       {
         id: 1,
         title: "Deploy to Staging",
-        description:
-          "Staging environment is up to date with current release",
+        description: "Staging environment is up to date with current release",
         status:
           step1ManuallyCompleted ||
           (hasStagingDeployments && stagingDeploymentsComplete)
@@ -481,8 +419,7 @@ export function ProductionReleaseProcess({
       {
         id: 2,
         title: "Notify QA - Staging Ready",
-        description:
-          "Email QA team to perform tests on staging environment",
+        description: "Email QA team to perform tests on staging environment",
         status: stagingEmailSent
           ? "completed"
           : hasStagingDeployments && stagingDeploymentsComplete
@@ -502,8 +439,7 @@ export function ProductionReleaseProcess({
       {
         id: 4,
         title: "Notify - Start Production Release",
-        description:
-          "Email stakeholders with QA compliance documentation",
+        description: "Email stakeholders with QA compliance documentation",
         status: prodEmailSent
           ? "completed"
           : hasQASignOff && hasComplianceFile
@@ -515,8 +451,7 @@ export function ProductionReleaseProcess({
       {
         id: 5,
         title: "Product Owner Sign-off",
-        description:
-          "Product owner approves production deployment",
+        description: "Product owner approves production deployment",
         status: hasPOSignOff ? "completed" : "pending",
         icon: UserCheck,
         requiresAction: true,
@@ -538,8 +473,7 @@ export function ProductionReleaseProcess({
       {
         id: 7,
         title: "Notify QA - Production Complete",
-        description:
-          "Email QA to perform production verification tests",
+        description: "Email QA to perform production verification tests",
         status: prodCompleteEmailSent
           ? "completed"
           : hasProdDeployments && prodDeploymentsComplete
@@ -550,21 +484,25 @@ export function ProductionReleaseProcess({
       },
       {
         id: 8,
-        title: "Create GitHub Release",
-        description: "Generate release with release notes",
-        status: step8ManuallyCompleted
-          ? "completed"
-          : "pending",
-        icon: FileCheck,
+        title: "QA Sign-off - Production Testing",
+        description: "QA team approves production deployment and testing",
+        status: hasProdQASignOff ? "completed" : "pending",
+        icon: ClipboardCheck,
         requiresAction: true,
       },
       {
         id: 9,
+        title: "Create GitHub Release",
+        description: "Generate release with release notes",
+        status: step9ManuallyCompleted ? "completed" : "pending",
+        icon: FileCheck,
+        requiresAction: true,
+      },
+      {
+        id: 10,
         title: "Update BUILD_VERSION",
         description: "Update BUILD_VERSION variables in repositories",
-        status: step9ManuallyCompleted
-          ? "completed"
-          : "pending",
+        status: step10ManuallyCompleted ? "completed" : "pending",
         icon: RefreshCw,
         requiresAction: true,
       },
@@ -573,9 +511,7 @@ export function ProductionReleaseProcess({
     setSteps(newSteps);
 
     // Set current step to first incomplete
-    const firstIncomplete = newSteps.findIndex(
-      (s) => s.status !== "completed",
-    );
+    const firstIncomplete = newSteps.findIndex((s) => s.status !== "completed");
     if (firstIncomplete >= 0) {
       setCurrentStepIndex(firstIncomplete);
     }
@@ -585,12 +521,7 @@ export function ProductionReleaseProcess({
     const IconComponent = step.icon;
 
     if (step.status === "completed") {
-      return (
-        <CheckCircle2
-          className="w-6 h-6"
-          style={{ color: "#10b981" }}
-        />
-      );
+      return <CheckCircle2 className="w-6 h-6" style={{ color: "#10b981" }} />;
     } else if (step.status === "in_progress") {
       return (
         <Loader2
@@ -603,10 +534,7 @@ export function ProductionReleaseProcess({
         <IconComponent
           className="w-6 h-6"
           style={{
-            color:
-              step.id === currentStepIndex + 1
-                ? "#7c3aed"
-                : "#d1d5db",
+            color: step.id === currentStepIndex + 1 ? "#7c3aed" : "#d1d5db",
           }}
         />
       );
@@ -657,9 +585,7 @@ export function ProductionReleaseProcess({
   };
 
   const calculateProgress = () => {
-    const completedSteps = steps.filter(
-      (s) => s.status === "completed",
-    ).length;
+    const completedSteps = steps.filter((s) => s.status === "completed").length;
     return (completedSteps / steps.length) * 100;
   };
 
@@ -667,8 +593,7 @@ export function ProductionReleaseProcess({
   const generateStagingEmailTemplate = (): EmailTemplate => {
     const releaseNumber =
       currentRelease?.releaseNumber ||
-      deployments.find((d) => d.globalReleaseNumber)
-        ?.globalReleaseNumber ||
+      deployments.find((d) => d.globalReleaseNumber)?.globalReleaseNumber ||
       "TBD";
     return {
       to: stagingEmailRecipients,
@@ -700,8 +625,7 @@ Thanks and regards`,
   const generateProductionEmailTemplate = (): EmailTemplate => {
     const releaseNumber =
       currentRelease?.releaseNumber ||
-      deployments.find((d) => d.globalReleaseNumber)
-        ?.globalReleaseNumber ||
+      deployments.find((d) => d.globalReleaseNumber)?.globalReleaseNumber ||
       "TBD";
     return {
       to: prodEmailRecipients,
@@ -729,15 +653,14 @@ Deployment Team`,
     };
   };
 
-  const generateProductionCompleteEmailTemplate =
-    (): EmailTemplate => {
-      const releaseNumber =
-        deployments.find((d) => d.globalReleaseNumber)
-          ?.globalReleaseNumber || "TBD";
-      return {
-        to: stagingEmailRecipients,
-        subject: `[QA Required] Production Deployment Complete - Release ${releaseNumber}`,
-        body: `Hi everyone,
+  const generateProductionCompleteEmailTemplate = (): EmailTemplate => {
+    const releaseNumber =
+      deployments.find((d) => d.globalReleaseNumber)?.globalReleaseNumber ||
+      "TBD";
+    return {
+      to: stagingEmailRecipients,
+      subject: `[QA Required] Production Deployment Complete - Release ${releaseNumber}`,
+      body: `Hi everyone,
 
 Production deployment for Release ${releaseNumber} has been completed successfully.
 
@@ -754,8 +677,8 @@ ${project.pipelines
 Please perform your production verification tests to ensure everything is functioning as expected.
 
 Thanks and regards`,
-      };
     };
+  };
 
   const copyEmailToClipboard = (template: EmailTemplate) => {
     const emailText = `To: ${template.to}\nSubject: ${template.subject}\n\n${template.body}`;
@@ -781,9 +704,7 @@ Thanks and regards`,
       }
     } catch (err) {
       console.error("Failed to copy to clipboard:", err);
-      alert(
-        "Failed to copy to clipboard. Please copy the text manually.",
-      );
+      alert("Failed to copy to clipboard. Please copy the text manually.");
     }
   };
 
@@ -868,6 +789,44 @@ Thanks and regards`,
       updateSteps();
     }
     setQaSignOffDialog(false);
+  };
+
+  const handleProdQASignOff = () => {
+    if (!prodQASignOff.testerName || !prodQASignOff.testsPassed) {
+      return;
+    }
+    if (currentRelease) {
+      // Update step status and production QA sign-off in a single update
+      const updatedSteps = currentRelease.steps.map((step) => {
+        if (step.stepId === 8) {
+          return {
+            ...step,
+            status: "completed" as const,
+            completedAt: Date.now(),
+          };
+        }
+        return step;
+      });
+
+      // Check if all steps are now completed
+      const allStepsCompleted = updatedSteps.every(
+        (step) => step.status === "completed",
+      );
+
+      updateCurrentRelease({
+        steps: updatedSteps,
+        // Store production QA sign-off in notes field or a custom field
+        notes: `Production QA Sign-off: ${prodQASignOff.testerName} on ${prodQASignOff.testDate}. Tests Passed: ${prodQASignOff.testsPassed}. Comments: ${prodQASignOff.comments}`,
+        status: allStepsCompleted ? "completed" : "in_progress",
+        completedAt: allStepsCompleted
+          ? Date.now()
+          : currentRelease.completedAt,
+      });
+    } else {
+      saveToStorage("prod_qa_signoff", prodQASignOff);
+      updateSteps();
+    }
+    setProdQASignOffDialog(false);
   };
 
   const handleComplianceFileUpload = (
@@ -1054,9 +1013,12 @@ Thanks and regards`,
         setProdCompleteEmailDialog(true);
         break;
       case 8:
-        setReleaseDialog(true);
+        setProdQASignOffDialog(true);
         break;
       case 9:
+        setReleaseDialog(true);
+        break;
+      case 10:
         setBuildVersionDialog(true);
         break;
     }
@@ -1083,33 +1045,15 @@ Thanks and regards`,
     ) {
       localStorage.removeItem(`${STORAGE_PREFIX}qa_signoff`);
       localStorage.removeItem(`${STORAGE_PREFIX}po_signoff`);
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}compliance_file`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}staging_email_sent`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}prod_email_sent`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}prod_complete_email_sent`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}email_recipients`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}step_1_completed`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}step_6_completed`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}step_8_completed`,
-      );
-      localStorage.removeItem(
-        `${STORAGE_PREFIX}step_9_completed`,
-      );
+      localStorage.removeItem(`${STORAGE_PREFIX}compliance_file`);
+      localStorage.removeItem(`${STORAGE_PREFIX}staging_email_sent`);
+      localStorage.removeItem(`${STORAGE_PREFIX}prod_email_sent`);
+      localStorage.removeItem(`${STORAGE_PREFIX}prod_complete_email_sent`);
+      localStorage.removeItem(`${STORAGE_PREFIX}email_recipients`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_1_completed`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_6_completed`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_8_completed`);
+      localStorage.removeItem(`${STORAGE_PREFIX}step_9_completed`);
 
       setQaSignOff({
         testerName: "",
@@ -1155,13 +1099,11 @@ Thanks and regards`,
     ) {
       if (currentRelease) {
         // Mark all steps as completed in the release
-        const completedSteps = currentRelease.steps.map(
-          (step) => ({
-            ...step,
-            status: "completed" as const,
-            completedAt: Date.now(),
-          }),
-        );
+        const completedSteps = currentRelease.steps.map((step) => ({
+          ...step,
+          status: "completed" as const,
+          completedAt: Date.now(),
+        }));
 
         updateCurrentRelease({
           steps: completedSteps,
@@ -1200,8 +1142,7 @@ Thanks and regards`,
         <Card
           className="border-2"
           style={{
-            background:
-              "linear-gradient(to right, #faf5ff, #fce7f3)",
+            background: "linear-gradient(to right, #faf5ff, #fce7f3)",
             borderColor: "#e9d5ff",
           }}
         >
@@ -1264,9 +1205,7 @@ Thanks and regards`,
                           "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                         borderColor: "#10b981",
                       }}
-                      disabled={
-                        currentRelease?.status === "completed"
-                      }
+                      disabled={currentRelease?.status === "completed"}
                     >
                       <CheckCircle2 className="w-3 h-3 mr-1" />
                       Mark All Complete
@@ -1291,15 +1230,9 @@ Thanks and regards`,
             {!isOpen && (
               <div className="mt-3 flex items-center gap-2 flex-wrap">
                 {steps.map((step, index) => (
-                  <div
-                    key={step.id}
-                    className="flex items-center gap-1.5"
-                  >
+                  <div key={step.id} className="flex items-center gap-1.5">
                     {getStepIcon(step)}
-                    <span
-                      className="text-xs"
-                      style={{ color: "#7c3aed" }}
-                    >
+                    <span className="text-xs" style={{ color: "#7c3aed" }}>
                       {step.title}
                     </span>
                     {index < steps.length - 1 && (
@@ -1319,19 +1252,12 @@ Thanks and regards`,
                 style={{ color: "#7c3aed" }}
               >
                 <span>
-                  {
-                    steps.filter(
-                      (s) => s.status === "completed",
-                    ).length
-                  }{" "}
-                  of {steps.length} steps completed
+                  {steps.filter((s) => s.status === "completed").length} of{" "}
+                  {steps.length} steps completed
                 </span>
                 <span>{Math.round(calculateProgress())}%</span>
               </div>
-              <Progress
-                value={calculateProgress()}
-                className="h-2"
-              />
+              <Progress value={calculateProgress()} className="h-2" />
             </div>
           </CardHeader>
 
@@ -1360,38 +1286,27 @@ Thanks and regards`,
                         </h4>
                         {getStepBadge(step.status)}
                       </div>
-                      <p
-                        className="text-sm mb-2"
-                        style={{ color: "#7c3aed" }}
-                      >
+                      <p className="text-sm mb-2" style={{ color: "#7c3aed" }}>
                         {step.description}
                       </p>
 
                       {/* Show stored data for completed steps */}
                       {step.status === "completed" &&
                         (() => {
-                          if (
-                            step.id === 2 &&
-                            stagingEmailRecipients
-                          ) {
+                          if (step.id === 2 && stagingEmailRecipients) {
                             return (
                               <div className="mt-2 p-2 rounded bg-blue-50 border border-blue-200">
                                 <div
                                   className="text-xs"
                                   style={{ color: "#1e40af" }}
                                 >
-                                  <strong>
-                                    Email sent to:
-                                  </strong>{" "}
+                                  <strong>Email sent to:</strong>{" "}
                                   {stagingEmailRecipients}
                                 </div>
                               </div>
                             );
                           }
-                          if (
-                            step.id === 3 &&
-                            qaSignOff.testerName
-                          ) {
+                          if (step.id === 3 && qaSignOff.testerName) {
                             return (
                               <div className="mt-2 p-2 rounded bg-green-50 border border-green-200">
                                 <div
@@ -1403,13 +1318,10 @@ Thanks and regards`,
                                     {qaSignOff.testerName}
                                   </div>
                                   <div>
-                                    <strong>Date:</strong>{" "}
-                                    {qaSignOff.testDate}
+                                    <strong>Date:</strong> {qaSignOff.testDate}
                                   </div>
                                   <div>
-                                    <strong>
-                                      Environment:
-                                    </strong>{" "}
+                                    <strong>Environment:</strong>{" "}
                                     {qaSignOff.testEnvironment}
                                   </div>
                                   {qaSignOff.comments && (
@@ -1431,9 +1343,7 @@ Thanks and regards`,
                                 >
                                   <div>
                                     <div>
-                                      <strong>
-                                        Compliance File:
-                                      </strong>{" "}
+                                      <strong>Compliance File:</strong>{" "}
                                       {complianceFile.fileName}
                                     </div>
                                     <div>
@@ -1443,18 +1353,14 @@ Thanks and regards`,
                                       ).toLocaleString()}
                                     </div>
                                     <div>
-                                      <strong>
-                                        Email sent to:
-                                      </strong>{" "}
+                                      <strong>Email sent to:</strong>{" "}
                                       {prodEmailRecipients}
                                     </div>
                                   </div>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={
-                                      downloadComplianceFile
-                                    }
+                                    onClick={downloadComplianceFile}
                                     className="ml-2"
                                     style={{
                                       borderColor: "#3b82f6",
@@ -1467,10 +1373,7 @@ Thanks and regards`,
                               </div>
                             );
                           }
-                          if (
-                            step.id === 5 &&
-                            poSignOff.ownerName
-                          ) {
+                          if (step.id === 5 && poSignOff.ownerName) {
                             return (
                               <div className="mt-2 p-2 rounded bg-green-50 border border-green-200">
                                 <div
@@ -1478,21 +1381,48 @@ Thanks and regards`,
                                   style={{ color: "#065f46" }}
                                 >
                                   <div>
-                                    <strong>
-                                      Product Owner:
-                                    </strong>{" "}
+                                    <strong>Product Owner:</strong>{" "}
                                     {poSignOff.ownerName}
                                   </div>
                                   <div>
-                                    <strong>
-                                      Approval Date:
-                                    </strong>{" "}
+                                    <strong>Approval Date:</strong>{" "}
                                     {poSignOff.approvalDate}
                                   </div>
                                   {poSignOff.comments && (
                                     <div>
                                       <strong>Comments:</strong>{" "}
                                       {poSignOff.comments}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (step.id === 8 && prodQASignOff.testerName) {
+                            return (
+                              <div className="mt-2 p-2 rounded bg-green-50 border border-green-200">
+                                <div
+                                  className="text-xs space-y-1"
+                                  style={{ color: "#065f46" }}
+                                >
+                                  <div>
+                                    <strong>Tester:</strong>{" "}
+                                    {prodQASignOff.testerName}
+                                  </div>
+                                  <div>
+                                    <strong>Test Date:</strong>{" "}
+                                    {prodQASignOff.testDate}
+                                  </div>
+                                  <div>
+                                    <strong>Tests Passed:</strong>{" "}
+                                    {prodQASignOff.testsPassed
+                                      ? "✓ Yes"
+                                      : "✗ No"}
+                                  </div>
+                                  {prodQASignOff.comments && (
+                                    <div>
+                                      <strong>Comments:</strong>{" "}
+                                      {prodQASignOff.comments}
                                     </div>
                                   )}
                                 </div>
@@ -1514,10 +1444,7 @@ Thanks and regards`,
                               )
                             ) {
                               if (currentRelease) {
-                                updateReleaseStep(
-                                  step.id,
-                                  "pending",
-                                );
+                                updateReleaseStep(step.id, "pending");
                               } else {
                                 // Clear the specific step completion flag
                                 localStorage.removeItem(
@@ -1565,9 +1492,22 @@ Thanks and regards`,
                                   localStorage.removeItem(
                                     `${STORAGE_PREFIX}prod_complete_email_sent`,
                                   );
-                                } else if (step.id === 9) {
+                                } else if (step.id === 8) {
                                   localStorage.removeItem(
-                                    `${STORAGE_PREFIX}step_9_completed`,
+                                    `${STORAGE_PREFIX}prod_qa_signoff`,
+                                  );
+                                  setProdQASignOff({
+                                    testerName: "",
+                                    testDate: new Date()
+                                      .toISOString()
+                                      .split("T")[0],
+                                    testEnvironment: "production",
+                                    testsPassed: false,
+                                    comments: "",
+                                  });
+                                } else if (step.id === 10) {
+                                  localStorage.removeItem(
+                                    `${STORAGE_PREFIX}step_10_completed`,
                                   );
                                 }
                                 updateSteps();
@@ -1591,45 +1531,38 @@ Thanks and regards`,
                           <div className="flex items-center gap-2 mt-2">
                             <Button
                               size="sm"
-                              onClick={() =>
-                                handleStepAction(step.id)
-                              }
+                              onClick={() => handleStepAction(step.id)}
                               className="text-white"
                               style={{
                                 background:
                                   "linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)",
                               }}
                             >
-                              {step.id === 2 ||
-                              step.id === 4 ||
-                              step.id === 7
+                              {step.id === 2 || step.id === 4 || step.id === 7
                                 ? "Compose Email"
-                                : step.id === 3
+                                : step.id === 3 || step.id === 8
                                   ? "Provide Sign-off"
                                   : step.id === 5
                                     ? "Approve Release"
                                     : step.id === 6
                                       ? "Deploy to Production"
-                                      : step.id === 8
+                                      : step.id === 9
                                         ? "Create Release"
-                                        : step.id === 9
+                                        : step.id === 10
                                           ? "Update Variables"
                                           : "Execute"}
                               <ChevronRight className="w-4 h-4 ml-1" />
                             </Button>
                             {(step.id === 1 ||
                               step.id === 6 ||
-                              step.id === 8 ||
-                              step.id === 9) && (
+                              step.id === 9 ||
+                              step.id === 10) && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => {
                                   if (currentRelease) {
-                                    updateReleaseStep(
-                                      step.id,
-                                      "completed",
-                                    );
+                                    updateReleaseStep(step.id, "completed");
                                   } else {
                                     saveToStorage(
                                       `step_${step.id}_completed`,
@@ -1663,8 +1596,7 @@ Thanks and regards`,
                               className="text-xs"
                               style={{ color: "#92400e" }}
                             >
-                              Complete previous steps before
-                              proceeding
+                              Complete previous steps before proceeding
                             </AlertDescription>
                           </Alert>
                         )}
@@ -1677,9 +1609,7 @@ Thanks and regards`,
                         className="w-0.5 h-4"
                         style={{
                           background:
-                            step.status === "completed"
-                              ? "#10b981"
-                              : "#e9d5ff",
+                            step.status === "completed" ? "#10b981" : "#e9d5ff",
                         }}
                       />
                     </div>
@@ -1692,28 +1622,18 @@ Thanks and regards`,
       </Collapsible>
 
       {/* Step 2: Staging Email Dialog */}
-      <Dialog
-        open={stagingEmailDialog}
-        onOpenChange={setStagingEmailDialog}
-      >
-        <DialogContent
-          className="max-w-2xl"
-          style={{ background: "#ffffff" }}
-        >
+      <Dialog open={stagingEmailDialog} onOpenChange={setStagingEmailDialog}>
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2"
               style={{ color: "#1f2937" }}
             >
-              <Mail
-                className="w-5 h-5"
-                style={{ color: "#7c3aed" }}
-              />
+              <Mail className="w-5 h-5" style={{ color: "#7c3aed" }} />
               Notify QA - Staging Ready
             </DialogTitle>
             <DialogDescription style={{ color: "#6b7280" }}>
-              Send email to QA team requesting staging
-              environment testing
+              Send email to QA team requesting staging environment testing
             </DialogDescription>
           </DialogHeader>
 
@@ -1724,9 +1644,7 @@ Thanks and regards`,
               </Label>
               <Input
                 value={stagingEmailRecipients}
-                onChange={(e) =>
-                  setStagingEmailRecipients(e.target.value)
-                }
+                onChange={(e) => setStagingEmailRecipients(e.target.value)}
                 placeholder="qa-team@example.com, tester1@example.com"
                 style={{ borderColor: "#d1d5db" }}
               />
@@ -1735,9 +1653,7 @@ Thanks and regards`,
             {stagingEmailTemplate && (
               <>
                 <div className="space-y-2">
-                  <Label style={{ color: "#374151" }}>
-                    Subject
-                  </Label>
+                  <Label style={{ color: "#374151" }}>Subject</Label>
                   <Input
                     value={stagingEmailTemplate.subject}
                     onChange={(e) =>
@@ -1751,9 +1667,7 @@ Thanks and regards`,
                 </div>
 
                 <div className="space-y-2">
-                  <Label style={{ color: "#374151" }}>
-                    Email Body
-                  </Label>
+                  <Label style={{ color: "#374151" }}>Email Body</Label>
                   <Textarea
                     value={stagingEmailTemplate.body}
                     onChange={(e) =>
@@ -1773,9 +1687,7 @@ Thanks and regards`,
 
                 <Button
                   variant="outline"
-                  onClick={() =>
-                    copyEmailToClipboard(stagingEmailTemplate)
-                  }
+                  onClick={() => copyEmailToClipboard(stagingEmailTemplate)}
                   className="w-full"
                   style={{
                     borderColor: "#c4b5fd",
@@ -1811,14 +1723,8 @@ Thanks and regards`,
       </Dialog>
 
       {/* Step 3: QA Sign-off Dialog */}
-      <Dialog
-        open={qaSignOffDialog}
-        onOpenChange={setQaSignOffDialog}
-      >
-        <DialogContent
-          className="max-w-2xl"
-          style={{ background: "#ffffff" }}
-        >
+      <Dialog open={qaSignOffDialog} onOpenChange={setQaSignOffDialog}>
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2"
@@ -1837,9 +1743,7 @@ Thanks and regards`,
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Tester Name *
-              </Label>
+              <Label style={{ color: "#374151" }}>Tester Name *</Label>
               <Input
                 value={qaSignOff.testerName}
                 onChange={(e) =>
@@ -1854,9 +1758,7 @@ Thanks and regards`,
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Test Date *
-              </Label>
+              <Label style={{ color: "#374151" }}>Test Date *</Label>
               <Input
                 type="date"
                 value={qaSignOff.testDate}
@@ -1871,32 +1773,22 @@ Thanks and regards`,
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Environment
-              </Label>
+              <Label style={{ color: "#374151" }}>Environment</Label>
               <Select
                 value={qaSignOff.testEnvironment}
-                onValueChange={(
-                  value: "staging" | "production",
-                ) =>
+                onValueChange={(value: "staging" | "production") =>
                   setQaSignOff({
                     ...qaSignOff,
                     testEnvironment: value,
                   })
                 }
               >
-                <SelectTrigger
-                  style={{ borderColor: "#d1d5db" }}
-                >
+                <SelectTrigger style={{ borderColor: "#d1d5db" }}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="staging">
-                    Staging
-                  </SelectItem>
-                  <SelectItem value="production">
-                    Production
-                  </SelectItem>
+                  <SelectItem value="staging">Staging</SelectItem>
+                  <SelectItem value="production">Production</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1922,9 +1814,7 @@ Thanks and regards`,
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Comments (optional)
-              </Label>
+              <Label style={{ color: "#374151" }}>Comments (optional)</Label>
               <Textarea
                 value={qaSignOff.comments}
                 onChange={(e) =>
@@ -1952,9 +1842,7 @@ Thanks and regards`,
               onClick={handleQASignOff}
               className="text-white"
               style={{ background: "#10b981" }}
-              disabled={
-                !qaSignOff.testerName || !qaSignOff.testsPassed
-              }
+              disabled={!qaSignOff.testerName || !qaSignOff.testsPassed}
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
               Approve Sign-off
@@ -1964,28 +1852,18 @@ Thanks and regards`,
       </Dialog>
 
       {/* Step 4: Production Email Dialog */}
-      <Dialog
-        open={prodEmailDialog}
-        onOpenChange={setProdEmailDialog}
-      >
-        <DialogContent
-          className="max-w-2xl"
-          style={{ background: "#ffffff" }}
-        >
+      <Dialog open={prodEmailDialog} onOpenChange={setProdEmailDialog}>
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2"
               style={{ color: "#1f2937" }}
             >
-              <Mail
-                className="w-5 h-5"
-                style={{ color: "#7c3aed" }}
-              />
+              <Mail className="w-5 h-5" style={{ color: "#7c3aed" }} />
               Start Production Release
             </DialogTitle>
             <DialogDescription style={{ color: "#6b7280" }}>
-              Send email to stakeholders with release compliance
-              documentation
+              Send email to stakeholders with release compliance documentation
             </DialogDescription>
           </DialogHeader>
 
@@ -2013,14 +1891,9 @@ Thanks and regards`,
               </div>
               {complianceFile && (
                 <div className="flex items-center justify-between">
-                  <p
-                    className="text-xs"
-                    style={{ color: "#6b7280" }}
-                  >
+                  <p className="text-xs" style={{ color: "#6b7280" }}>
                     File: {complianceFile.fileName} • Uploaded:{" "}
-                    {new Date(
-                      complianceFile.uploadDate,
-                    ).toLocaleString()}
+                    {new Date(complianceFile.uploadDate).toLocaleString()}
                   </p>
                   <Button
                     size="sm"
@@ -2044,9 +1917,7 @@ Thanks and regards`,
               </Label>
               <Input
                 value={prodEmailRecipients}
-                onChange={(e) =>
-                  setProdEmailRecipients(e.target.value)
-                }
+                onChange={(e) => setProdEmailRecipients(e.target.value)}
                 placeholder="po@example.com, stakeholder@example.com"
                 style={{ borderColor: "#d1d5db" }}
               />
@@ -2055,13 +1926,9 @@ Thanks and regards`,
             {prodEmailRecipients && (
               <>
                 <div className="space-y-2">
-                  <Label style={{ color: "#374151" }}>
-                    Email Preview
-                  </Label>
+                  <Label style={{ color: "#374151" }}>Email Preview</Label>
                   <Textarea
-                    value={
-                      generateProductionEmailTemplate().body
-                    }
+                    value={generateProductionEmailTemplate().body}
                     readOnly
                     rows={10}
                     style={{
@@ -2076,9 +1943,7 @@ Thanks and regards`,
                 <Button
                   variant="outline"
                   onClick={() =>
-                    copyEmailToClipboard(
-                      generateProductionEmailTemplate(),
-                    )
+                    copyEmailToClipboard(generateProductionEmailTemplate())
                   }
                   className="w-full"
                   style={{
@@ -2115,36 +1980,24 @@ Thanks and regards`,
       </Dialog>
 
       {/* Step 5: PO Sign-off Dialog */}
-      <Dialog
-        open={poSignOffDialog}
-        onOpenChange={setPoSignOffDialog}
-      >
-        <DialogContent
-          className="max-w-2xl"
-          style={{ background: "#ffffff" }}
-        >
+      <Dialog open={poSignOffDialog} onOpenChange={setPoSignOffDialog}>
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2"
               style={{ color: "#1f2937" }}
             >
-              <UserCheck
-                className="w-5 h-5"
-                style={{ color: "#7c3aed" }}
-              />
+              <UserCheck className="w-5 h-5" style={{ color: "#7c3aed" }} />
               Product Owner Sign-off
             </DialogTitle>
             <DialogDescription style={{ color: "#6b7280" }}>
-              Record Product Owner approval for production
-              deployment
+              Record Product Owner approval for production deployment
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Product Owner Name *
-              </Label>
+              <Label style={{ color: "#374151" }}>Product Owner Name *</Label>
               <Input
                 value={poSignOff.ownerName}
                 onChange={(e) =>
@@ -2159,9 +2012,7 @@ Thanks and regards`,
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Approval Date *
-              </Label>
+              <Label style={{ color: "#374151" }}>Approval Date *</Label>
               <Input
                 type="date"
                 value={poSignOff.approvalDate}
@@ -2176,9 +2027,7 @@ Thanks and regards`,
             </div>
 
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Comments (optional)
-              </Label>
+              <Label style={{ color: "#374151" }}>Comments (optional)</Label>
               <Textarea
                 value={poSignOff.comments}
                 onChange={(e) =>
@@ -2194,16 +2043,13 @@ Thanks and regards`,
             </div>
 
             <Alert className="border-amber-200 bg-amber-50">
-              <AlertCircle
-                className="h-4 w-4"
-                style={{ color: "#f59e0b" }}
-              />
+              <AlertCircle className="h-4 w-4" style={{ color: "#f59e0b" }} />
               <AlertDescription
                 className="text-xs"
                 style={{ color: "#92400e" }}
               >
-                By approving, you authorize the production
-                deployment to proceed.
+                By approving, you authorize the production deployment to
+                proceed.
               </AlertDescription>
             </Alert>
           </div>
@@ -2234,36 +2080,25 @@ Thanks and regards`,
         open={prodCompleteEmailDialog}
         onOpenChange={setProdCompleteEmailDialog}
       >
-        <DialogContent
-          className="max-w-2xl"
-          style={{ background: "#ffffff" }}
-        >
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2"
               style={{ color: "#1f2937" }}
             >
-              <Mail
-                className="w-5 h-5"
-                style={{ color: "#10b981" }}
-              />
+              <Mail className="w-5 h-5" style={{ color: "#10b981" }} />
               Production Deployment Complete
             </DialogTitle>
             <DialogDescription style={{ color: "#6b7280" }}>
-              Notify QA team to perform production verification
-              tests
+              Notify QA team to perform production verification tests
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Email Preview
-              </Label>
+              <Label style={{ color: "#374151" }}>Email Preview</Label>
               <Textarea
-                value={
-                  generateProductionCompleteEmailTemplate().body
-                }
+                value={generateProductionCompleteEmailTemplate().body}
                 readOnly
                 rows={12}
                 style={{
@@ -2278,9 +2113,7 @@ Thanks and regards`,
             <Button
               variant="outline"
               onClick={() =>
-                copyEmailToClipboard(
-                  generateProductionCompleteEmailTemplate(),
-                )
+                copyEmailToClipboard(generateProductionCompleteEmailTemplate())
               }
               className="w-full"
               style={{
@@ -2313,44 +2146,139 @@ Thanks and regards`,
         </DialogContent>
       </Dialog>
 
-      {/* Step 8: GitHub Release Dialog */}
-      <Dialog
-        open={releaseDialog}
-        onOpenChange={setReleaseDialog}
-      >
-        <DialogContent
-          className="max-w-2xl"
-          style={{ background: "#ffffff" }}
-        >
+      {/* Step 8: Production QA Sign-off Dialog */}
+      <Dialog open={prodQASignOffDialog} onOpenChange={setProdQASignOffDialog}>
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
           <DialogHeader>
             <DialogTitle
               className="flex items-center gap-2"
               style={{ color: "#1f2937" }}
             >
-              <FileCheck
+              <ClipboardCheck
                 className="w-5 h-5"
                 style={{ color: "#7c3aed" }}
               />
-              Create GitHub Release
+              Production QA Sign-off
             </DialogTitle>
             <DialogDescription style={{ color: "#6b7280" }}>
-              Create a new release for your repository with tags
-              and release notes
+              Record QA team approval for production deployment and testing
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label style={{ color: "#374151" }}>
-                Repository
-              </Label>
+              <Label style={{ color: "#374151" }}>Tester Name *</Label>
+              <Input
+                value={prodQASignOff.testerName}
+                onChange={(e) =>
+                  setProdQASignOff({
+                    ...prodQASignOff,
+                    testerName: e.target.value,
+                  })
+                }
+                placeholder="John Doe"
+                style={{ borderColor: "#d1d5db" }}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label style={{ color: "#374151" }}>Test Date *</Label>
+              <Input
+                type="date"
+                value={prodQASignOff.testDate}
+                onChange={(e) =>
+                  setProdQASignOff({
+                    ...prodQASignOff,
+                    testDate: e.target.value,
+                  })
+                }
+                style={{ borderColor: "#d1d5db" }}
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="prod-tests-passed"
+                checked={prodQASignOff.testsPassed}
+                onCheckedChange={(checked) =>
+                  setProdQASignOff({
+                    ...prodQASignOff,
+                    testsPassed: checked as boolean,
+                  })
+                }
+              />
+              <label
+                htmlFor="prod-tests-passed"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                style={{ color: "#374151" }}
+              >
+                All production tests passed successfully *
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <Label style={{ color: "#374151" }}>Comments (optional)</Label>
+              <Textarea
+                value={prodQASignOff.comments}
+                onChange={(e) =>
+                  setProdQASignOff({
+                    ...prodQASignOff,
+                    comments: e.target.value,
+                  })
+                }
+                rows={4}
+                placeholder="Any additional notes, issues, or observations from production testing..."
+                style={{ borderColor: "#d1d5db" }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setProdQASignOffDialog(false)}
+              style={{ color: "#374151" }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleProdQASignOff}
+              className="text-white"
+              style={{ background: "#10b981" }}
+              disabled={!prodQASignOff.testerName || !prodQASignOff.testsPassed}
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              Approve Sign-off
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Step 9: GitHub Release Dialog */}
+      <Dialog open={releaseDialog} onOpenChange={setReleaseDialog}>
+        <DialogContent className="max-w-2xl" style={{ background: "#ffffff" }}>
+          <DialogHeader>
+            <DialogTitle
+              className="flex items-center gap-2"
+              style={{ color: "#1f2937" }}
+            >
+              <FileCheck className="w-5 h-5" style={{ color: "#7c3aed" }} />
+              Create GitHub Release
+            </DialogTitle>
+            <DialogDescription style={{ color: "#6b7280" }}>
+              Create a new release for your repository with tags and release
+              notes
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label style={{ color: "#374151" }}>Repository</Label>
               <Select
                 value={selectedRepository}
                 onValueChange={setSelectedRepository}
               >
-                <SelectTrigger
-                  style={{ borderColor: "#d1d5db" }}
-                >
+                <SelectTrigger style={{ borderColor: "#d1d5db" }}>
                   <SelectValue placeholder="Choose a repository" />
                 </SelectTrigger>
                 <SelectContent>
