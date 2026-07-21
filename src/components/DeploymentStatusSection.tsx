@@ -79,7 +79,7 @@ export function DeploymentStatusSection({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteBatchDialogOpen, setDeleteBatchDialogOpen] = useState(false);
   const [deploymentToDelete, setDeploymentToDelete] = useState<string | null>(
-    null
+    null,
   );
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
 
@@ -98,7 +98,7 @@ export function DeploymentStatusSection({
   // Auto-refresh when there are active deployments
   useEffect(() => {
     const hasActiveDeployments = deployments.some(
-      (d) => d.status === "pending" || d.status === "in_progress"
+      (d) => d.status === "pending" || d.status === "in_progress",
     );
 
     if (!hasActiveDeployments) {
@@ -108,13 +108,13 @@ export function DeploymentStatusSection({
 
     const getPollingInterval = () => {
       const activeDeployments = deployments.filter(
-        (d) => d.status === "pending" || d.status === "in_progress"
+        (d) => d.status === "pending" || d.status === "in_progress",
       );
       if (activeDeployments.length === 0) return 15000;
 
       const oldestActiveDeployment = activeDeployments.reduce(
         (oldest, current) =>
-          current.startedAt < oldest.startedAt ? current : oldest
+          current.startedAt < oldest.startedAt ? current : oldest,
       );
 
       const age = Date.now() - oldestActiveDeployment.startedAt;
@@ -172,12 +172,12 @@ export function DeploymentStatusSection({
         }
 
         const pipeline = project.pipelines.find(
-          (p) => p.id === deployment.pipelineId
+          (p) => p.id === deployment.pipelineId,
         );
         if (!pipeline) continue;
 
         const repository = project.repositories.find(
-          (r) => r.id === pipeline.repositoryId
+          (r) => r.id === pipeline.repositoryId,
         );
         if (!repository) continue;
 
@@ -185,7 +185,7 @@ export function DeploymentStatusSection({
           const run = await getWorkflowRun(
             repository.owner,
             repository.repo,
-            deployment.workflowRunId
+            deployment.workflowRunId,
           );
 
           let status: Deployment["status"] = "pending";
@@ -197,11 +197,16 @@ export function DeploymentStatusSection({
             status = "pending";
           }
 
-          if (status !== deployment.status) {
+          const newDisplayTitle = run.display_title || undefined;
+          if (
+            status !== deployment.status ||
+            newDisplayTitle !== deployment.displayTitle
+          ) {
             hasUpdates = true;
             updatedDeployments[i] = {
               ...deployment,
               status,
+              displayTitle: newDisplayTitle,
               completedAt:
                 run.status === "completed"
                   ? new Date(run.updated_at).getTime()
@@ -213,7 +218,7 @@ export function DeploymentStatusSection({
         } catch (err) {
           console.error(
             `Failed to refresh status for deployment ${deployment.id}:`,
-            err
+            err,
           );
         }
       }
@@ -353,14 +358,17 @@ export function DeploymentStatusSection({
   };
 
   // Group deployments by batchId
-  const groupedDeployments = deployments.reduce((groups, deployment) => {
-    const batchId = deployment.batchId || "unknown";
-    if (!groups[batchId]) {
-      groups[batchId] = [];
-    }
-    groups[batchId].push(deployment);
-    return groups;
-  }, {} as Record<string, Deployment[]>);
+  const groupedDeployments = deployments.reduce(
+    (groups, deployment) => {
+      const batchId = deployment.batchId || "unknown";
+      if (!groups[batchId]) {
+        groups[batchId] = [];
+      }
+      groups[batchId].push(deployment);
+      return groups;
+    },
+    {} as Record<string, Deployment[]>,
+  );
 
   // Sort batch groups by most recent first
   const sortedBatchIds = Object.keys(groupedDeployments).sort((a, b) => {
@@ -370,7 +378,7 @@ export function DeploymentStatusSection({
   });
 
   const activeCount = deployments.filter(
-    (d) => d.status === "pending" || d.status === "in_progress"
+    (d) => d.status === "pending" || d.status === "in_progress",
   ).length;
 
   return (
@@ -437,7 +445,7 @@ export function DeploymentStatusSection({
                           title={`${activeCount} active deployment${
                             activeCount > 1 ? "s" : ""
                           } • Next refresh in ${Math.ceil(
-                            nextRefreshIn / 1000
+                            nextRefreshIn / 1000,
                           )} seconds`}
                         >
                           <RefreshCw className="w-3 h-3 animate-spin" />
@@ -452,7 +460,8 @@ export function DeploymentStatusSection({
                       {(() => {
                         const activeDeployments = deployments.filter(
                           (d) =>
-                            d.status === "pending" || d.status === "in_progress"
+                            d.status === "pending" ||
+                            d.status === "in_progress",
                         );
                         if (activeDeployments.length === 0) {
                           return "Deployments grouped by session - each trigger creates a new batch";
@@ -462,7 +471,7 @@ export function DeploymentStatusSection({
                           (oldest, current) =>
                             current.startedAt < oldest.startedAt
                               ? current
-                              : oldest
+                              : oldest,
                         );
                         const ageMinutes =
                           (Date.now() - oldestActive.startedAt) / 60000;
@@ -470,8 +479,8 @@ export function DeploymentStatusSection({
                           ageMinutes < 2
                             ? "10s"
                             : ageMinutes < 5
-                            ? "20s"
-                            : "30s";
+                              ? "20s"
+                              : "30s";
 
                         return `Auto-refreshing every ${interval} • ${
                           activeDeployments.length
@@ -513,13 +522,13 @@ export function DeploymentStatusSection({
                   {sortedBatchIds.map((batchId, batchIndex) => {
                     const batch = groupedDeployments[batchId];
                     const batchStartTime = Math.min(
-                      ...batch.map((d) => d.startedAt)
+                      ...batch.map((d) => d.startedAt),
                     );
                     const batchHasGlobalRelease = batch.some(
-                      (d) => d.globalReleaseNumber
+                      (d) => d.globalReleaseNumber,
                     );
                     const globalReleaseNumber = batch.find(
-                      (d) => d.globalReleaseNumber
+                      (d) => d.globalReleaseNumber,
                     )?.globalReleaseNumber;
 
                     return (
@@ -656,10 +665,10 @@ export function DeploymentStatusSection({
                           <TableBody>
                             {batch.map((deployment) => {
                               const pipeline = project.pipelines.find(
-                                (p) => p.id === deployment.pipelineId
+                                (p) => p.id === deployment.pipelineId,
                               );
                               const repo = project.repositories.find(
-                                (r) => r.id === deployment.repositoryId
+                                (r) => r.id === deployment.repositoryId,
                               );
 
                               return (
@@ -675,10 +684,10 @@ export function DeploymentStatusSection({
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-col gap-1">
                                       <Badge
                                         variant="outline"
-                                        className="text-xs"
+                                        className="text-xs w-fit"
                                         style={{
                                           color: "#7c3aed",
                                           background: "#fefcff",
@@ -687,6 +696,15 @@ export function DeploymentStatusSection({
                                       >
                                         {pipeline?.name || "Unknown"}
                                       </Badge>
+                                      {deployment.displayTitle && (
+                                        <span
+                                          className="text-xs truncate max-w-[200px]"
+                                          style={{ color: "#9ca3af" }}
+                                          title={deployment.displayTitle}
+                                        >
+                                          {deployment.displayTitle}
+                                        </span>
+                                      )}
                                     </div>
                                   </TableCell>
                                   <TableCell>
@@ -697,7 +715,7 @@ export function DeploymentStatusSection({
                                         className="text-xs font-mono"
                                         style={getEnvironmentBadgeStyle(
                                           deployment.environment ||
-                                            pipeline?.environment
+                                            pipeline?.environment,
                                         )}
                                       >
                                         {deployment.environment ||
@@ -743,7 +761,7 @@ export function DeploymentStatusSection({
                                           onClick={() => {
                                             window.open(
                                               `https://github.com/${repo.owner}/${repo.repo}/actions/runs/${deployment.workflowRunId}`,
-                                              "_blank"
+                                              "_blank",
                                             );
                                           }}
                                           className="hover:bg-purple-100 h-7 w-7 p-0"

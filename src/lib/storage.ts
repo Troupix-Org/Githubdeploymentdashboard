@@ -44,6 +44,7 @@ export interface Deployment {
   workflowRunId?: number;
   startedAt: number;
   completedAt?: number;
+  displayTitle?: string; // GitHub workflow run display_title
 }
 
 export interface ProductionReleaseStep {

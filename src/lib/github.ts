@@ -50,6 +50,7 @@ interface GitHubWorkflow {
 interface GitHubWorkflowRun {
   id: number;
   name: string;
+  display_title?: string;
   status: string;
   conclusion: string | null;
   created_at: string;
