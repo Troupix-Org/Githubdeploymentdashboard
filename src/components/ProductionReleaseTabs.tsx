@@ -36,6 +36,7 @@ import {
   saveProject,
   saveDeployment,
   saveProductionRelease,
+  updateBatchMetadata,
 } from "../lib/storage";
 import {
   triggerWorkflow,
@@ -45,9 +46,12 @@ import {
   listEnvironments,
   getLatestBuildsForBranch,
 } from "../lib/github";
+import { generateDeploymentSummary, SummaryData } from "../lib/releaseSummary";
 import { ProductionReleaseProcess } from "./ProductionReleaseProcess";
 import { DeploymentStatusSection } from "./DeploymentStatusSection";
 import { ReportGenerator } from "./ReportGenerator";
+import { ReleaseNotesStep } from "./production/ReleaseNotesStep";
+import { ReleaseSummaryDialog } from "./production/ReleaseSummaryDialog";
 import {
   Card,
   CardContent,
@@ -182,6 +186,15 @@ export function ProductionReleaseTabs({
 
   // Report Generator Dialog
   const [showReportDialog, setShowReportDialog] = useState(false);
+
+  // Release Notes Dialog
+  const [showReleaseNotesDialog, setShowReleaseNotesDialog] = useState(false);
+  const [releaseNotes, setReleaseNotes] = useState("");
+
+  // Release Summary Dialog
+  const [showReleaseSummaryDialog, setShowReleaseSummaryDialog] =
+    useState(false);
+  const [releaseSummary, setReleaseSummary] = useState<any>(null);
 
   // Deploy All Dialog states
   const [showDeployAllDialog, setShowDeployAllDialog] = useState(false);
@@ -572,6 +585,32 @@ export function ProductionReleaseTabs({
       setShowDeployAllDialog(false);
       setEditingSelection(false);
     }, 1500);
+  };
+
+  const handleViewReleaseSummary = (release: ProductionRelease) => {
+    // Get deployments for this release
+    const releaseDeployments = deployments.filter(
+      (d) => d.productionReleaseId === release.id,
+    );
+
+    if (releaseDeployments.length === 0) {
+      alert("No deployments found for this release");
+      return;
+    }
+
+    // Get the batch ID from first deployment
+    const batchId = releaseDeployments[0].batchId;
+
+    // Generate summary
+    const summary = generateDeploymentSummary(
+      batchId || "unknown",
+      releaseDeployments,
+      project,
+      releaseNotes || undefined,
+    );
+
+    setReleaseSummary(summary);
+    setShowReleaseSummaryDialog(true);
   };
 
   const handleCreateNewRelease = () => {
@@ -1093,6 +1132,20 @@ export function ProductionReleaseTabs({
                 >
                   <FileText className="w-4 h-4" />
                   Generate Report
+                </Button>
+              )}
+
+              {/* View Release Summary Button - Show when any deployments in batch are completed */}
+              {release.deploymentIds && release.deploymentIds.length > 0 && (
+                <Button
+                  onClick={() => handleViewReleaseSummary(release)}
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  style={{ borderColor: "#10b981", color: "#10b981" }}
+                >
+                  <FileText className="w-4 h-4" />
+                  View Release Summary
                 </Button>
               )}
             </div>
@@ -2663,6 +2716,15 @@ export function ProductionReleaseTabs({
             />
           ) : null;
         })()}
+
+      {/* Release Summary Dialog */}
+      {releaseSummary && (
+        <ReleaseSummaryDialog
+          open={showReleaseSummaryDialog}
+          onOpenChange={setShowReleaseSummaryDialog}
+          summary={releaseSummary}
+        />
+      )}
     </>
   );
 }

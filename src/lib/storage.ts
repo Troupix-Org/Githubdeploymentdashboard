@@ -531,6 +531,7 @@ export function createProductionRelease(
   const release: ProductionRelease = {
     id: `prod_release_${Date.now()}_${Math.random().toString(36).substring(7)}`,
     releaseNumber,
+    name: `Release ${releaseNumber}`,
     projectId,
     createdAt: Date.now(),
     status: "draft",
@@ -550,4 +551,54 @@ export function createProductionRelease(
 
   saveProductionRelease(release);
   return release;
+}
+
+// Batch Metadata (Release Notes & Summary) storage
+export interface BatchMetadata {
+  batchId: string;
+  releaseNotes?: string;
+  createdAt: number;
+  productionReleaseId?: string;
+}
+
+const BATCH_METADATA_PREFIX = "batch_metadata_";
+
+export function saveBatchMetadata(metadata: BatchMetadata): void {
+  try {
+    const key = `${BATCH_METADATA_PREFIX}${metadata.batchId}`;
+    localStorage.setItem(key, JSON.stringify(metadata));
+  } catch (err) {
+    console.error("Failed to save batch metadata:", err);
+  }
+}
+
+export function getBatchMetadata(batchId: string): BatchMetadata | null {
+  try {
+    const key = `${BATCH_METADATA_PREFIX}${batchId}`;
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (err) {
+    console.error("Failed to get batch metadata:", err);
+    return null;
+  }
+}
+
+export function updateBatchMetadata(
+  batchId: string,
+  updates: Partial<BatchMetadata>,
+): void {
+  try {
+    const existing = getBatchMetadata(batchId);
+    if (existing) {
+      saveBatchMetadata({ ...existing, ...updates, batchId });
+    } else {
+      saveBatchMetadata({
+        batchId,
+        createdAt: Date.now(),
+        ...updates,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to update batch metadata:", err);
+  }
 }
