@@ -260,13 +260,16 @@ export function ProductionReleaseTabs({
     const sorted = projectReleases.sort((a, b) => b.createdAt - a.createdAt);
     setReleases(sorted);
 
-    // Set active tab to the most recent in-progress or draft release, or the first one
+    // Only change active tab if current one no longer exists
     if (sorted.length > 0) {
-      const activeRelease =
-        sorted.find(
-          (r) => r.status === "in_progress" || r.status === "draft",
-        ) || sorted[0];
-      setActiveTab(activeRelease.id);
+      const currentStillExists = sorted.some((r) => r.id === activeTab);
+      if (!currentStillExists) {
+        const activeRelease =
+          sorted.find(
+            (r) => r.status === "in_progress" || r.status === "draft",
+          ) || sorted[0];
+        setActiveTab(activeRelease.id);
+      }
     }
   };
 
