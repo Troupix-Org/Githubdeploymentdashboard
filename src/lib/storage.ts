@@ -1,6 +1,6 @@
 // IndexedDB storage for projects and pipelines
 const DB_NAME = "github-deploy-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const PROJECTS_STORE = "projects";
 
 export interface Pipeline {
