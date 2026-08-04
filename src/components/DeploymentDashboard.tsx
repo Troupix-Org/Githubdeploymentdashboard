@@ -47,6 +47,7 @@ import {
   Bell,
   BellOff,
   Timer,
+  User,
 } from "lucide-react";
 import {
   Project,
@@ -65,6 +66,8 @@ import {
   WorkflowInput,
   findTriggeredWorkflowRun,
   getWorkflowRun,
+  getWorkflowRuns,
+  GitHubWorkflowRun,
   listEnvironments,
   getRateLimitState,
 } from "../lib/github";
@@ -167,7 +170,7 @@ export function DeploymentDashboard({
   }>({});
 
   // Collapsible sections states
-  const [deployOpen, setDeployOpen] = useState(false);
+  const [deployOpen, setDeployOpen] = useState(true);
   const [deploymentStatusOpen, setDeploymentStatusOpen] = useState(true);
 
   // Deployment Status states
@@ -194,6 +197,14 @@ export function DeploymentDashboard({
       typeof Notification !== "undefined" ? Notification.permission : "denied",
     );
 
+  // Active GitHub workflow runs per pipeline (pipelineId -> run or null)
+  const [activeRuns, setActiveRuns] = useState<
+    Record<string, GitHubWorkflowRun | null>
+  >({});
+  const [activeRunsLoading, setActiveRunsLoading] = useState<
+    Record<string, boolean>
+  >({});
+
   // Live elapsed counters for in-progress deployments (deploymentId -> elapsed ms)
   const [elapsedTimes, setElapsedTimes] = useState<Record<string, number>>({});
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
@@ -215,25 +226,35 @@ export function DeploymentDashboard({
     }
   }, []);
 
-  // Live elapsed counter for active deployments
+  // Live elapsed counter for active deployments and active GitHub runs
   useEffect(() => {
     const activeDeployments = deployments.filter(
       (d) => d.status === "pending" || d.status === "in_progress",
+    );
+    const activeRunEntries = Object.values(activeRuns).filter(
+      (r): r is GitHubWorkflowRun =>
+        r !== null && (r.status === "in_progress" || r.status === "queued"),
     );
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
       elapsedIntervalRef.current = null;
     }
-    if (activeDeployments.length === 0) {
+    if (activeDeployments.length === 0 && activeRunEntries.length === 0) {
       setElapsedTimes({});
       return;
     }
     const tick = () => {
       const now = Date.now();
+      const deploymentEntries = activeDeployments.map((d) => [
+        d.id,
+        now - d.startedAt,
+      ]);
+      const runEntries = activeRunEntries.map((r) => [
+        `run-${r.id}`,
+        now - new Date(r.created_at).getTime(),
+      ]);
       setElapsedTimes(
-        Object.fromEntries(
-          activeDeployments.map((d) => [d.id, now - d.startedAt]),
-        ),
+        Object.fromEntries([...deploymentEntries, ...runEntries]),
       );
     };
     tick();
@@ -241,7 +262,15 @@ export function DeploymentDashboard({
     return () => {
       if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
     };
-  }, [deployments]);
+  }, [deployments, activeRuns]);
+
+  const formatElapsed = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ${s % 60}s`;
+    return `${Math.floor(m / 60)}h ${m % 60}m`;
+  };
 
   const loadDeployments = () => {
     const data = getDeploymentsByProject(project.id);
@@ -268,6 +297,74 @@ export function DeploymentDashboard({
       setSuccess("Batch deleted successfully");
       setTimeout(() => setSuccess(""), 2000);
     }
+  };
+
+  const fetchActiveRunsForProject = async () => {
+    const loadingMap: Record<string, boolean> = {};
+    project.pipelines.forEach((p) => {
+      loadingMap[p.id] = true;
+    });
+    setActiveRunsLoading(loadingMap);
+
+    const results: Record<string, GitHubWorkflowRun | null> = {};
+    for (const pipeline of project.pipelines) {
+      const repo = project.repositories.find(
+        (r) => r.id === pipeline.repositoryId,
+      );
+      if (!repo) {
+        results[pipeline.id] = null;
+        setActiveRunsLoading((prev) => ({ ...prev, [pipeline.id]: false }));
+        continue;
+      }
+      try {
+        const runs = await getWorkflowRuns(
+          repo.owner,
+          repo.repo,
+          pipeline.workflowFile,
+          5,
+          pipeline.branch,
+          "in_progress",
+        );
+        const active =
+          runs.find(
+            (r) => r.status === "in_progress" || r.status === "queued",
+          ) ?? null;
+        results[pipeline.id] = active;
+      } catch {
+        results[pipeline.id] = null;
+      }
+      setActiveRunsLoading((prev) => ({ ...prev, [pipeline.id]: false }));
+    }
+    setActiveRuns(results);
+  };
+
+  const refreshActiveRunForPipeline = async (pipelineId: string) => {
+    setActiveRunsLoading((prev) => ({ ...prev, [pipelineId]: true }));
+    const pipeline = project.pipelines.find((p) => p.id === pipelineId);
+    const repo =
+      pipeline &&
+      project.repositories.find((r) => r.id === pipeline.repositoryId);
+    if (!pipeline || !repo) {
+      setActiveRunsLoading((prev) => ({ ...prev, [pipelineId]: false }));
+      return;
+    }
+    try {
+      const runs = await getWorkflowRuns(
+        repo.owner,
+        repo.repo,
+        pipeline.workflowFile,
+        5,
+        pipeline.branch,
+        "in_progress",
+      );
+      const active =
+        runs.find((r) => r.status === "in_progress" || r.status === "queued") ??
+        null;
+      setActiveRuns((prev) => ({ ...prev, [pipelineId]: active }));
+    } catch {
+      // leave existing value on error
+    }
+    setActiveRunsLoading((prev) => ({ ...prev, [pipelineId]: false }));
   };
 
   const refreshDeploymentStatus = async (silent = false) => {
@@ -537,6 +634,7 @@ export function DeploymentDashboard({
     loadDeployments();
     loadLatestBuilds();
     loadWorkflowInputs();
+    fetchActiveRunsForProject();
   }, [project.id]);
 
   // Auto-refresh deployment status when there are active deployments
@@ -591,6 +689,15 @@ export function DeploymentDashboard({
       clearInterval(refreshInterval);
     };
   }, [deployments]);
+
+  // Refresh active GitHub runs every 5 minutes regardless of deployment state
+  useEffect(() => {
+    const interval = setInterval(
+      () => fetchActiveRunsForProject(),
+      5 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  }, [project.id]);
 
   // Reset editing state when dialog opens/closes
   useEffect(() => {
@@ -1502,7 +1609,9 @@ export function DeploymentDashboard({
                                         size="sm"
                                         variant="ghost"
                                         className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                                        onClick={(e) => {
+                                        onClick={(
+                                          e: React.MouseEvent<HTMLButtonElement>,
+                                        ) => {
                                           e.stopPropagation();
                                           window.open(build.url, "_blank");
                                         }}
@@ -1710,6 +1819,153 @@ export function DeploymentDashboard({
                               );
                             })}
                           </div>
+
+                          {/* Active GitHub Run Banner */}
+                          {activeRunsLoading[pipeline.id] ? (
+                            <div
+                              className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                              style={{
+                                background:
+                                  "linear-gradient(to right, #fffbeb, #fef3c7)",
+                                border: "1px solid #fde68a",
+                              }}
+                            >
+                              <Loader2
+                                className="w-3 h-3 animate-spin flex-shrink-0"
+                                style={{ color: "#d97706" }}
+                              />
+                              <span style={{ color: "#92400e" }}>
+                                Checking for active runs…
+                              </span>
+                            </div>
+                          ) : activeRuns[pipeline.id] ? (
+                            (() => {
+                              const run = activeRuns[pipeline.id]!;
+                              const actor =
+                                run.actor?.login ?? run.triggering_actor?.login;
+                              const elapsed = elapsedTimes[`run-${run.id}`];
+                              const isQueued = run.status === "queued";
+                              const title = run.display_title ?? run.name;
+                              return (
+                                <div
+                                  className="rounded-lg text-xs overflow-hidden"
+                                  style={{
+                                    background:
+                                      "linear-gradient(to right, #fffbeb, #fef3c7)",
+                                    border: "1px solid #fde68a",
+                                    boxShadow:
+                                      "0 1px 4px rgba(251,191,36,0.15)",
+                                  }}
+                                >
+                                  {/* Header row */}
+                                  <div
+                                    className="flex items-center justify-between gap-2 px-3 py-2"
+                                    style={{
+                                      borderBottom: "1px solid #fde68a",
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      {isQueued ? (
+                                        <Clock
+                                          className="w-3.5 h-3.5 flex-shrink-0"
+                                          style={{ color: "#d97706" }}
+                                        />
+                                      ) : (
+                                        <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                                          <span
+                                            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+                                            style={{ background: "#f59e0b" }}
+                                          />
+                                          <span
+                                            className="relative inline-flex rounded-full h-2.5 w-2.5"
+                                            style={{ background: "#d97706" }}
+                                          />
+                                        </span>
+                                      )}
+                                      <span
+                                        className="font-semibold tracking-wide uppercase"
+                                        style={{
+                                          color: "#92400e",
+                                          fontSize: "0.65rem",
+                                          letterSpacing: "0.06em",
+                                        }}
+                                      >
+                                        {isQueued ? "Queued" : "Running now"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() =>
+                                          refreshActiveRunForPipeline(
+                                            pipeline.id,
+                                          )
+                                        }
+                                        disabled={
+                                          activeRunsLoading[pipeline.id]
+                                        }
+                                        className="flex items-center rounded p-1 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                                        style={{ color: "#b45309" }}
+                                        title="Refresh status"
+                                      >
+                                        <RefreshCw
+                                          className={`w-3 h-3${
+                                            activeRunsLoading[pipeline.id]
+                                              ? " animate-spin"
+                                              : ""
+                                          }`}
+                                        />
+                                      </button>
+                                      <a
+                                        href={run.html_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-amber-100"
+                                        style={{ color: "#b45309" }}
+                                      >
+                                        <span className="font-medium">
+                                          View on GitHub
+                                        </span>
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                  {/* Content */}
+                                  <div className="px-3 py-2 space-y-1.5">
+                                    <div
+                                      className="font-medium truncate"
+                                      style={{ color: "#78350f" }}
+                                      title={title}
+                                    >
+                                      {title.length > 60
+                                        ? title.slice(0, 60) + "…"
+                                        : title}
+                                    </div>
+                                    <div
+                                      className="flex flex-wrap items-center gap-x-4 gap-y-1"
+                                      style={{ color: "#a16207" }}
+                                    >
+                                      <span className="flex items-center gap-1">
+                                        <GitBranch className="w-3 h-3" />
+                                        {run.head_branch}
+                                      </span>
+                                      {actor && (
+                                        <span className="flex items-center gap-1">
+                                          <User className="w-3 h-3" />
+                                          {actor}
+                                        </span>
+                                      )}
+                                      {elapsed !== undefined && (
+                                        <span className="flex items-center gap-1 font-medium">
+                                          <Timer className="w-3 h-3" />
+                                          {formatElapsed(elapsed)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()
+                          ) : null}
 
                           {/* Deploy Button */}
                           <div className="flex justify-end pt-1">

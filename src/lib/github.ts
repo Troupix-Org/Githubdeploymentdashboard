@@ -47,7 +47,7 @@ interface GitHubWorkflow {
   state: string;
 }
 
-interface GitHubWorkflowRun {
+export interface GitHubWorkflowRun {
   id: number;
   name: string;
   display_title?: string;
@@ -64,6 +64,8 @@ interface GitHubWorkflowRun {
       name: string;
     };
   };
+  actor?: { login: string };
+  triggering_actor?: { login: string };
 }
 
 export interface WorkflowInput {
@@ -142,10 +144,14 @@ export async function getWorkflowRuns(
   workflowFile: string,
   limit: number = 10,
   branch?: string,
+  statusFilter?: string,
 ): Promise<GitHubWorkflowRun[]> {
   let url = `/repos/${owner}/${repo}/actions/workflows/${workflowFile}/runs?per_page=${limit}`;
   if (branch) {
     url += `&branch=${encodeURIComponent(branch)}`;
+  }
+  if (statusFilter) {
+    url += `&status=${encodeURIComponent(statusFilter)}`;
   }
   const data = await githubFetch(url);
   return data.workflow_runs || [];
