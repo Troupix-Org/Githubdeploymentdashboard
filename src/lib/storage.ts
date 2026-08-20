@@ -603,3 +603,35 @@ export function updateBatchMetadata(
     console.error("Failed to update batch metadata:", err);
   }
 }
+
+// Multi-project dashboard configuration
+export interface DashboardConfig {
+  selectedProjectIds: string[]; // empty = all projects
+  refreshIntervalMinutes: number;
+  sortBy: "date" | "project" | "status" | "environment" | "branch";
+  maxPerProject: number;
+}
+
+const DASHBOARD_CONFIG_KEY = "dashboard_config";
+
+const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
+  selectedProjectIds: [],
+  refreshIntervalMinutes: 5,
+  sortBy: "date" as const,
+  maxPerProject: 10,
+};
+
+export function getDashboardConfig(): DashboardConfig {
+  try {
+    const data = localStorage.getItem(DASHBOARD_CONFIG_KEY);
+    return data
+      ? { ...DEFAULT_DASHBOARD_CONFIG, ...JSON.parse(data) }
+      : DEFAULT_DASHBOARD_CONFIG;
+  } catch {
+    return DEFAULT_DASHBOARD_CONFIG;
+  }
+}
+
+export function saveDashboardConfig(config: DashboardConfig): void {
+  localStorage.setItem(DASHBOARD_CONFIG_KEY, JSON.stringify(config));
+}

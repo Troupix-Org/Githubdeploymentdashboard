@@ -1,20 +1,26 @@
-import { useState, useEffect } from 'react';
-import { TokenSetup } from './components/TokenSetup';
-import { Header } from './components/Header';
-import { ProjectList } from './components/ProjectList';
-import { ProjectConfig } from './components/ProjectConfig';
-import { DeploymentDashboard } from './components/DeploymentDashboard';
-import { getGitHubToken, getGitHubUser, saveGitHubUser, GitHubUser } from './lib/storage';
-import { Project } from './lib/storage';
-import { Toaster } from './components/ui/sonner';
-import { verifyToken } from './lib/github';
+import { useState, useEffect } from "react";
+import { TokenSetup } from "./components/TokenSetup";
+import { Header } from "./components/Header";
+import { ProjectList } from "./components/ProjectList";
+import { ProjectConfig } from "./components/ProjectConfig";
+import { DeploymentDashboard } from "./components/DeploymentDashboard";
+import { MultiProjectDashboard } from "./components/MultiProjectDashboard";
+import {
+  getGitHubToken,
+  getGitHubUser,
+  saveGitHubUser,
+  GitHubUser,
+} from "./lib/storage";
+import { Project } from "./lib/storage";
+import { Toaster } from "./components/ui/sonner";
+import { verifyToken } from "./lib/github";
 
-type View = 'projects' | 'config' | 'deploy';
+type View = "projects" | "config" | "deploy" | "dashboard";
 
 export default function App() {
   const [hasToken, setHasToken] = useState(false);
   const [user, setUser] = useState<GitHubUser | null>(null);
-  const [view, setView] = useState<View>('projects');
+  const [view, setView] = useState<View>("projects");
   const [selectedProject, setSelectedProject] = useState<Project | undefined>();
   const [editingProject, setEditingProject] = useState<Project | undefined>();
 
@@ -23,30 +29,30 @@ export default function App() {
       const token = getGitHubToken();
       if (token) {
         setHasToken(true);
-        
+
         // Try to load user from storage
         let storedUser = getGitHubUser();
-        
+
         // If no stored user, fetch from API
         if (!storedUser) {
           try {
             storedUser = await verifyToken();
             saveGitHubUser(storedUser);
           } catch (err) {
-            console.error('Failed to fetch user details:', err);
+            console.error("Failed to fetch user details:", err);
           }
         }
-        
+
         setUser(storedUser);
       }
     };
-    
+
     initializeApp();
   }, []);
 
   const handleTokenSaved = async () => {
     setHasToken(true);
-    
+
     // Load user details after token is saved
     const storedUser = getGitHubUser();
     setUser(storedUser);
@@ -55,34 +61,36 @@ export default function App() {
   const handleLogout = () => {
     setHasToken(false);
     setUser(null);
-    setView('projects');
+    setView("projects");
     setSelectedProject(undefined);
     setEditingProject(undefined);
   };
 
+  const handleNavigateToDashboard = () => setView("dashboard");
+
   const handleAddProject = () => {
     setEditingProject(undefined);
-    setView('config');
+    setView("config");
   };
 
   const handleConfigureProject = (project: Project) => {
     setEditingProject(project);
-    setView('config');
+    setView("config");
   };
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
-    setView('deploy');
+    setView("deploy");
   };
 
   const handleBackToProjects = () => {
-    setView('projects');
+    setView("projects");
     setSelectedProject(undefined);
     setEditingProject(undefined);
   };
 
   const handleProjectSaved = () => {
-    setView('projects');
+    setView("projects");
     setEditingProject(undefined);
   };
 
@@ -91,11 +99,22 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)' }}>
-      <Header user={user} onLogout={handleLogout} />
-      
+    <div
+      className="min-h-screen"
+      style={{
+        background:
+          "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+      }}
+    >
+      <Header
+        user={user}
+        onLogout={handleLogout}
+        currentView={view}
+        onNavigate={setView as (v: string) => void}
+      />
+
       <main className="container mx-auto px-6 py-8">
-        {view === 'projects' && (
+        {view === "projects" && (
           <ProjectList
             onAddProject={handleAddProject}
             onSelectProject={handleSelectProject}
@@ -103,7 +122,7 @@ export default function App() {
           />
         )}
 
-        {view === 'config' && (
+        {view === "config" && (
           <ProjectConfig
             project={editingProject}
             onBack={handleBackToProjects}
@@ -111,11 +130,15 @@ export default function App() {
           />
         )}
 
-        {view === 'deploy' && selectedProject && (
+        {view === "deploy" && selectedProject && (
           <DeploymentDashboard
             project={selectedProject}
             onBack={handleBackToProjects}
           />
+        )}
+
+        {view === "dashboard" && (
+          <MultiProjectDashboard onNavigateToProject={handleSelectProject} />
         )}
       </main>
 

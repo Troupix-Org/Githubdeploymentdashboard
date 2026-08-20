@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, LayoutDashboard } from "lucide-react";
 import { clearGitHubToken, getGitHubToken, GitHubUser } from "../lib/storage";
 import { getRateLimitState, onRateLimitUpdate } from "../lib/github";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -9,6 +9,8 @@ import IconComponent from "./IconComponent";
 interface HeaderProps {
   user: GitHubUser | null;
   onLogout: () => void;
+  currentView?: string;
+  onNavigate?: (view: string) => void;
 }
 
 function formatResetTime(resetAt: number | null): string {
@@ -82,7 +84,12 @@ function RateLimitWidget() {
   );
 }
 
-export function Header({ user, onLogout }: HeaderProps) {
+export function Header({
+  user,
+  onLogout,
+  currentView,
+  onNavigate,
+}: HeaderProps) {
   const handleLogout = () => {
     if (
       confirm(
@@ -123,6 +130,24 @@ export function Header({ user, onLogout }: HeaderProps) {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {onNavigate && (
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  onNavigate(
+                    currentView === "dashboard" ? "projects" : "dashboard",
+                  )
+                }
+                className="hover:bg-purple-50"
+                style={{
+                  color: currentView === "dashboard" ? "#7c3aed" : "#a855f7",
+                  fontWeight: currentView === "dashboard" ? 600 : 400,
+                }}
+              >
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+            )}
             <RateLimitWidget />
             {user && (
               <div
