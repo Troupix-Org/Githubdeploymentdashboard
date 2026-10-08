@@ -39,10 +39,7 @@ import {
   Deployment,
   Repository,
   ProductionRelease,
-  getProductionReleasesByProject,
   saveProductionRelease,
-  createProductionRelease,
-  generateReleaseNumber,
 } from "../lib/storage";
 import { Progress } from "./ui/progress";
 import {
@@ -250,46 +247,6 @@ export function ProductionReleaseProcess({
       localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(data));
     } catch (err) {
       console.error("Failed to save to storage:", err);
-    }
-  };
-
-  const handleCreateNewRelease = () => {
-    const suggestedNumber = generateReleaseNumber(project.id);
-    setNewReleaseNumber(suggestedNumber);
-    setUseAutoNumber(true);
-    setShowReleaseDialog(true);
-  };
-
-  const handleConfirmCreateRelease = () => {
-    const releaseNumber = useAutoNumber
-      ? newReleaseNumber
-      : newReleaseNumber.trim();
-    if (!releaseNumber) {
-      alert("Please enter a release number");
-      return;
-    }
-
-    // Check if release number already exists
-    const exists = availableReleases.some(
-      (r) => r.releaseNumber === releaseNumber,
-    );
-    if (exists) {
-      alert("A release with this number already exists");
-      return;
-    }
-
-    const newRelease = createProductionRelease(project.id, releaseNumber);
-    setCurrentRelease(newRelease);
-    setAvailableReleases([newRelease, ...availableReleases]);
-    localStorage.setItem(`${STORAGE_PREFIX}current_release_id`, newRelease.id);
-    setShowReleaseDialog(false);
-  };
-
-  const handleSelectRelease = (releaseId: string) => {
-    const release = availableReleases.find((r) => r.id === releaseId);
-    if (release) {
-      setCurrentRelease(release);
-      localStorage.setItem(`${STORAGE_PREFIX}current_release_id`, release.id);
     }
   };
 
@@ -1797,10 +1754,10 @@ Thanks and regards`,
               <Checkbox
                 id="tests-passed"
                 checked={qaSignOff.testsPassed}
-                onCheckedChange={(checked) =>
+                onCheckedChange={(checked: boolean | "indeterminate") =>
                   setQaSignOff({
                     ...qaSignOff,
-                    testsPassed: checked as boolean,
+                    testsPassed: checked === true,
                   })
                 }
               />
@@ -2200,10 +2157,10 @@ Thanks and regards`,
               <Checkbox
                 id="prod-tests-passed"
                 checked={prodQASignOff.testsPassed}
-                onCheckedChange={(checked) =>
+                onCheckedChange={(checked: boolean | "indeterminate") =>
                   setProdQASignOff({
                     ...prodQASignOff,
-                    testsPassed: checked as boolean,
+                    testsPassed: checked === true,
                   })
                 }
               />

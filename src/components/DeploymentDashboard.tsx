@@ -756,7 +756,7 @@ export function DeploymentDashboard({
     }));
     setBuildNumbers((prev) => ({
       ...prev,
-      [pipeline.id]: deployment.buildNumber,
+      [pipeline.id]: deployment.buildNumber ?? "",
     }));
     setDeployOpen(true);
     setTimeout(() => {
@@ -1693,12 +1693,14 @@ export function DeploymentDashboard({
                                       <Checkbox
                                         id={`input-${pipeline.id}-${input.name}`}
                                         checked={value === true}
-                                        onCheckedChange={(checked) => {
+                                        onCheckedChange={(
+                                          checked: boolean | "indeterminate",
+                                        ) => {
                                           setInputValues((prev) => ({
                                             ...prev,
                                             [pipeline.id]: {
                                               ...prev[pipeline.id],
-                                              [input.name]: checked,
+                                              [input.name]: checked === true,
                                             },
                                           }));
                                         }}
@@ -1717,7 +1719,7 @@ export function DeploymentDashboard({
                                     input.options.length > 0 ? (
                                     <Select
                                       value={value || ""}
-                                      onValueChange={(val) => {
+                                      onValueChange={(val: string) => {
                                         setInputValues((prev) => ({
                                           ...prev,
                                           [pipeline.id]: {
