@@ -147,6 +147,8 @@ export function DeploymentDashboard({
   const [showAllBuilds, setShowAllBuilds] = useState<{
     [pipelineId: string]: boolean;
   }>({});
+  const [buildErrors, setBuildErrors] = useState<Record<string, string>>({});
+  const buildRequests = useRef(new Set<string>());
 
   // Deploy All Dialog states
   const [showDeployAllDialog, setShowDeployAllDialog] = useState(false);
@@ -494,61 +496,55 @@ export function DeploymentDashboard({
     }
   };
 
-  const loadLatestBuilds = async () => {
-    // Load latest builds from the configured branch for each pipeline
-    for (const pipeline of project.pipelines) {
-      // Set loading state
-      setLatestBuilds((prev) => ({
-        ...prev,
-        [pipeline.id]: { loading: true },
-      }));
+  const loadPipelineBuilds = async (pipeline: Project["pipelines"][number]) => {
+    if (buildRequests.current.has(pipeline.id)) return;
+    buildRequests.current.add(pipeline.id);
+    setBuildErrors((prev) => ({ ...prev, [pipeline.id]: "" }));
+    setLatestBuilds((prev) => ({
+      ...prev,
+      [pipeline.id]: { ...prev[pipeline.id], loading: true },
+    }));
 
-      // Find the repository for this pipeline
+    try {
       const repo = project.repositories.find(
-        (r) => r.id === pipeline.repositoryId,
+        (repository) => repository.id === pipeline.repositoryId,
       );
       if (!repo) {
-        setLatestBuilds((prev) => ({
-          ...prev,
-          [pipeline.id]: {},
-        }));
-        continue;
+        throw new Error("Repository is not configured for this pipeline.");
       }
+      const buildsData = await getLatestBuildsForBranch(
+        repo.owner,
+        repo.repo,
+        pipeline.workflowFile,
+        pipeline.branch,
+        5,
+        { throwOnError: true },
+      );
+      setAllBuilds((prev) => ({
+        ...prev,
+        [pipeline.id]: buildsData,
+      }));
+      setLatestBuilds((prev) => ({
+        ...prev,
+        [pipeline.id]: buildsData[0] || {},
+      }));
+    } catch (err) {
+      setBuildErrors((prev) => ({
+        ...prev,
+        [pipeline.id]: `Could not refresh builds: ${err instanceof Error ? err.message : "Unknown error"} Retry using the refresh button.`,
+      }));
+    } finally {
+      buildRequests.current.delete(pipeline.id);
+      setLatestBuilds((prev) => ({
+        ...prev,
+        [pipeline.id]: { ...prev[pipeline.id], loading: false },
+      }));
+    }
+  };
 
-      try {
-        // Load last 5 builds
-        const buildsData = await getLatestBuildsForBranch(
-          repo.owner,
-          repo.repo,
-          pipeline.workflowFile,
-          pipeline.branch,
-          5,
-        );
-
-        setAllBuilds((prev) => ({
-          ...prev,
-          [pipeline.id]: buildsData || [],
-        }));
-
-        // Set the latest build (first one) as the default
-        setLatestBuilds((prev) => ({
-          ...prev,
-          [pipeline.id]: buildsData[0] || {},
-        }));
-      } catch (err) {
-        console.error(
-          `Failed to load latest builds for ${pipeline.name} on ${pipeline.branch}:`,
-          err,
-        );
-        setLatestBuilds((prev) => ({
-          ...prev,
-          [pipeline.id]: {},
-        }));
-        setAllBuilds((prev) => ({
-          ...prev,
-          [pipeline.id]: [],
-        }));
-      }
+  const loadLatestBuilds = async () => {
+    for (const pipeline of project.pipelines) {
+      await loadPipelineBuilds(pipeline);
     }
   };
 
@@ -1348,8 +1344,8 @@ export function DeploymentDashboard({
                       }}
                     >
                       {/* Pipeline Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0 space-y-0.5">
                           <div className="flex items-center gap-2">
                             <div
                               className="w-1 h-5 rounded-full"
@@ -1389,9 +1385,10 @@ export function DeploymentDashboard({
                             </div>
                           )}
                         </div>
-                        {buildNumberInput && (
+                        <div className="flex min-w-0 items-center gap-2">
                           <div className="flex flex-col items-end gap-1">
-                            {latestBuilds[pipeline.id]?.loading ? (
+                            {latestBuilds[pipeline.id]?.loading &&
+                            !latestBuilds[pipeline.id]?.buildNumber ? (
                               <div
                                 className="flex items-center gap-1 text-xs"
                                 style={{ color: "#9ca3af" }}
@@ -1402,9 +1399,10 @@ export function DeploymentDashboard({
                             ) : latestBuilds[pipeline.id]?.buildNumber ? (
                               <>
                                 <div
-                                  className="flex items-center gap-1 text-xs cursor-pointer hover:opacity-80 transition-all"
+                                  className="flex flex-wrap items-center justify-end gap-1 text-xs cursor-pointer hover:opacity-80 transition-all"
                                   style={{ color: "#7c3aed" }}
                                   onClick={() => {
+                                    if (!buildNumberInput) return;
                                     console.log(
                                       "Using latest build:",
                                       latestBuilds[pipeline.id]?.buildNumber,
@@ -1470,10 +1468,37 @@ export function DeploymentDashboard({
                                   </button>
                                 )}
                               </>
+                            ) : !buildErrors[pipeline.id] &&
+                              allBuilds[pipeline.id] ? (
+                              <span className="text-xs text-muted-foreground">
+                                No builds found
+                              </span>
                             ) : null}
                           </div>
-                        )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            aria-label={`Refresh last five builds from ${pipeline.branch} for ${pipeline.name}`}
+                            title={`Refresh last five builds from ${pipeline.branch}`}
+                            disabled={latestBuilds[pipeline.id]?.loading}
+                            onClick={() => loadPipelineBuilds(pipeline)}
+                          >
+                            <RefreshCw
+                              className={`h-4 w-4 ${latestBuilds[pipeline.id]?.loading ? "animate-spin" : ""}`}
+                            />
+                          </Button>
+                        </div>
                       </div>
+                      {buildErrors[pipeline.id] && (
+                        <p
+                          role="alert"
+                          className="text-xs text-red-600 break-words"
+                        >
+                          {buildErrors[pipeline.id]}
+                        </p>
+                      )}
 
                       {/* Last 5 Builds Dropdown */}
                       {showAllBuilds[pipeline.id] &&

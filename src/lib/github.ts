@@ -442,6 +442,7 @@ export async function getLatestBuildsForBranch(
   workflowFile: string,
   branch: string,
   limit: number = 5,
+  options: { throwOnError?: boolean } = {},
 ): Promise<
   Array<{
     buildNumber?: string;
@@ -499,6 +500,9 @@ export async function getLatestBuildsForBranch(
     return builds;
   } catch (err) {
     console.error("Failed to get latest builds:", err);
+    if (options.throwOnError) {
+      throw err;
+    }
     return [];
   }
 }
