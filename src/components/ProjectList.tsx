@@ -23,7 +23,7 @@ import {
 } from "./ui/alert-dialog";
 import { ImportExportDialog } from "./ImportExportDialog";
 import { ProjectOverviewCard } from "./ProjectOverviewCard";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 interface ProjectListProps {
   onAddProject: () => void;
